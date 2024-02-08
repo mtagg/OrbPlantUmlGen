@@ -1,0 +1,65 @@
+@startuml State Diagram
+
+skin rose
+'left to right direction
+hide empty description
+!theme reddress-lightgreen
+title FB_StateMachine State Diagram
+
+
+
+state FB_StateMachine{
+
+		state eOuterLoopState #03adfc {
+		[*] --> eOuterLoopState_Setup : START
+		state eOuterLoopState_Setup{
+			state "Setup()" as CALL_1
+			[*] --> CALL_1
+			state eOuterLoopState_Setup_IF_1 <<choice>>
+				state "Reset()" as CALL_2
+			}
+		state eOuterLoopState_Operational{
+			state eOuterLoopState_Operational_IF_2 <<choice>>
+			[*] ---> eOuterLoopState_Operational_IF_2 : START
+				state eOuterLoopState_Operational_ELSIF_1 <<choice>>
+				state "InnerLoopSM()" as CALL_3
+			}
+		state eOuterLoopState_DisablingInactive{
+			state eOuterLoopState_DisablingInactive_IF_3 <<choice>>
+			[*] ---> eOuterLoopState_DisablingInactive_IF_3 : START
+			}
+		state eOuterLoopState_Inactive{
+			state eOuterLoopState_Inactive_IF_4 <<choice>>
+			[*] ---> eOuterLoopState_Inactive_IF_4 : START
+				state "Reset()" as CALL_4
+			}
+		state eOuterLoopState_DisablingError{
+			state eOuterLoopState_DisablingError_IF_5 <<choice>>
+			[*] ---> eOuterLoopState_DisablingError_IF_5 : START
+			}
+		state eOuterLoopState_DisabledError{
+			state eOuterLoopState_DisabledError_IF_6 <<choice>>
+			[*] ---> eOuterLoopState_DisabledError_IF_6 : START
+			}
+	CALL_1 --> eOuterLoopState_Setup_IF_1
+	eOuterLoopState_Setup_IF_1 --> CALL_2 : (bActive)
+	CALL_2 --> eOuterLoopState_Operational : (bActive)
+	eOuterLoopState_Setup_IF_1 --> eOuterLoopState_Inactive : (NOT (bActive))
+	CALL_2 --> CALL_1
+	eOuterLoopState_Operational_IF_2 --> eOuterLoopState_DisablingError : (bError)
+	eOuterLoopState_Operational_IF_2 ---> eOuterLoopState_Operational_ELSIF_1 : (NOT (bError))
+	eOuterLoopState_Operational_ELSIF_1 --> CALL_3 : (bActive)
+	eOuterLoopState_Operational_ELSIF_1 --> eOuterLoopState_DisablingInactive : (NOT (bActive))
+	CALL_3 --> eOuterLoopState_Operational_IF_2
+	eOuterLoopState_DisablingInactive_IF_3 --> eOuterLoopState_Inactive : (Disable())
+	eOuterLoopState_Inactive_IF_4 --> CALL_4 : (bActive)
+	CALL_4 --> eOuterLoopState_Operational : (bActive)
+	CALL_4 --> eOuterLoopState_Inactive_IF_4
+	eOuterLoopState_DisablingError_IF_5 --> eOuterLoopState_DisabledError : (Disable())
+	eOuterLoopState_DisabledError_IF_6 --> eOuterLoopState_Inactive : (bErrorAck)
+		}
+
+
+}
+
+@enduml
