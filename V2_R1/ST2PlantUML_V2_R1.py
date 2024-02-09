@@ -164,7 +164,9 @@ def parseTcPouFile(absFilePath, Name, outputDirAbsolute):
             
             # Get the PlantUML Code       
             umlGenerator = PlantUmlGenerator()
-            output.write(umlGenerator.getPlantUMLString(implementationString, caseStates, methods)) 
+            if len(caseStates) > 0:
+              caseVariable = caseStates[-1]
+              # output.write(umlGenerator.convertCaseToUML(implementationString, caseVariable)) 
             output.write("\n\n}\n")
             output.write(GLOBALS_["FileFooter"])       
 
@@ -206,6 +208,30 @@ def main():
         print(f"UML Diagrams can be generated @ {umlGeneratorLink}")
                 
 
+
+
+    # TESTING:
+    subStateString = """<<Setup()>>>
+			Setup();
+			Setup_0();
+			IF bActive THEN
+	<<<Reset()>>>
+				Reset();
+				ChangeOuterState(E_OuterLoopSM_States.Operational);
+			ELSE
+				ChangeOuterState(E_OuterLoopSM_States.Inactive);
+			END_IF
+    """
+    lines = subStateString.splitlines()
+    start = 0
+    end = len(lines)
+    # print(end)
+    state = 'setup'
+    case = 'outer'
+    UmlGenerator = PlantUmlGenerator()
+    print(UmlGenerator.convertSubStateToUML(lines, case, state, start, end))
+    
+    
     input("Press Enter to close. . .\n>> ")
     return # exit
 

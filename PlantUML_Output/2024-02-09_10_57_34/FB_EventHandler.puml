@@ -1,0 +1,12 @@
+@startuml State Diagram
+
+skin rose
+left to right direction
+hide empty description
+!theme reddress-lightgreen
+title FB_EventHandler State Diagram
+
+
+
+state FB_EventHandler{
+

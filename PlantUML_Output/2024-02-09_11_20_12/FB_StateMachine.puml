@@ -1,0 +1,17 @@
+@startuml State Diagram
+
+skin rose
+left to right direction
+hide empty description
+!theme reddress-lightgreen
+title FB_StateMachine State Diagram
+
+
+
+state FB_StateMachine{
+
+
+
+}
+
+@enduml
