@@ -1,0 +1,911 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FB_DbEventLogger" Id="{13ff3753-2b83-4d29-b9c3-72c983c7da94}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_DbEventLogger
+
+VAR_INPUT
+	// TODO: update to avoid FB_Init and just pass array/size-index variables as inputs
+	
+	sAMSNetID : T_MaxString;
+	sDbPath : T_MaxString := 'C:\';
+	sTimestamp : T_MaxString;	// Timestamp from main used to name DB during initialization
+	stEventArrayIn : REFERENCE TO ARRAY [1..SystemConfig.MAIN_EVENT_LOG_MAX_LENGTH] OF ST_Event;
+	nEventArraySize : REFERENCE TO UINT; 
+	
+	bClose : BOOL := FALSE;	// Flag from MAIN to start shutdown cleanup procedures
+	bResetDbInitialization : BOOL := FALSE;
+END_VAR
+
+VAR_OUTPUT
+// Status Output Variables:
+	bBusy : BOOL;
+	bError : BOOL := FALSE;
+	bClosed : BOOL := FALSE;
+	nEventsLoggedCounter : ULINT := 0;
+//	nInfoMessagesIgnored : ULINT := 0;
+//	nDebugMessagesIgnored : ULINT := 0;
+	bCriticalError : BOOL := FALSE; // DB Server Error flag, triggers fail state in main
+	sCriticalErrorMessage : T_MaxString := ''; //DB Server Error String
+	tcMessage : Tc3_EventLogger.I_TcMessage;
+	
+// Set Results Info Variables:
+	EventClassName : STRING(255);		
+	EventSourcePath : STRING(255);
+	EventId : UDINT;
+	EventText : STRING(255);
+	
+END_VAR
+
+VAR
+// IO Config Variables:
+	sServer : STRING(80);
+	sTableNamePrefix : T_Maxstring := 'Table_EventLog_';
+	sTableName : T_MaxString := '';
+	
+// State Variables:
+	nState_CreateDB: INT := 0;
+	nState_LogEvents: INT := 0;
+	nState_CloseDB : INT := 0;
+	nState_SetResInfo: INT := 0;
+	bDbTableHasBeenCreated : BOOL := FALSE;
+	fbDbTimer :TON;
+	tDbTimeoutToLogPendingEvents : TIME := T#1S; // Time before we log, even without a full buffer
+	tDbTimeoutToCloseDb : TIME := T#5S; // Timeout before force closing DB
+
+// DB FBs:
+	fbConfigTcDBSrv : FB_ConfigTcDBSrvEvt(sNetID:=THIS^.sAMSNetID, tTimeout:=T#5S);
+	fbPLCDBCreate : FB_PLCDBCreateEvt(sNetID:=THIS^.sAMSNetID, tTimeout:=T#5S);
+	fbPLCDBCmd : FB_PLCDBCmdEvt(sNetID:=THIS^.sAMSNetID, tTimeout:=T#49S); //49s because we have 50 buffers to write one per second before they repeat the same buffer. 
+	fbPLCDBRead : FB_PLCDBReadEvt(sNetID:=THIS^.sAMSNetID, tTimeout:=T#5S);
+//	fbPLCDBWrite : FB_PLCDBWriteEvt(sNetID:=THIS^.sAMSNetID, tTimeout:=T#5S);
+	fbFindFileEntry : FB_EnumFindFileEntry;
+	
+// DB/table Create Variables
+//	tcMessage : Tc3_EventLogger.I_TcMessage;
+	nDBID: UDINT;
+	stDBConfig: T_DBConfig_MsCompactSQL;
+	arrTableColumns: ARRAY[0..7] OF ST_ColumnInfo;
+    aDBConfig         : ARRAY[0..MAX_CONFIGURATIONS] OF ST_ConfigDB;
+    aAutoGrpConfig    : ARRAY[0..MAX_CONFIGURATIONS] OF ST_ConfigAutoLogGrp;
+    nDbCount          : UDINT;
+    nAutoGrpCount     : UDINT;
+//	arrColumns: ARRAY [0..6] OF STRING(50); // Used for WriteStruct method in FB_PLCFBWrite - depricated
+	
+// ExpParameter method Variables
+	aPara: ARRAY [0..6] OF ST_ExpParameter;	
+	sCmd1: STRING(255);
+	sCmd2: STRING(255);
+	sCmd: STRING(512); //CONCAT of sCmd1 and sCmd2
+	
+// Event Array Variables:
+//	stEventArrayIn : REFERENCE TO ARRAY [1..SystemConfig.MAIN_EVENT_LOG_MAX_LENGTH] OF ST_Event;
+//	nEventArraySize : REFERENCE TO UINT; 
+	nEventArrayIndex : UDINT := 0;
+
+// 2D Event Buffer Variables:
+	a2dEventBuffer: ARRAY [1..EVENT_LOG_2D_BUFFER_COUNT, 1..EVENT_LOG_2D_BUFFER_MAX_SIZE] OF ST_Event; // multiple buffers of size EVENT_LOG_2D_BUFFER_MAX_SIZE
+	n2dWriteBufferIndex : UDINT := 1; //index 1..EVENT_LOG_2D_BUFFER_COUNT
+	n2dEventIndex : UDINT := 0; //index 1..EVENT_LOG_BUFFER_MAX_SIZE
+	aWriteSqlReady : ARRAY [1..EVENT_LOG_2D_BUFFER_COUNT] OF BOOL; // flag to indicate a particular buffer is ready-to-write.
+	nWriteSqlIndex : UDINT := 1; // index of ready-to-write sql flag
+	nPartialBufferIndex : UDINT; // Used to log partial buffers after timeout has occured
+	bCleanupLastIndexReached : BOOL; // Flag to indicate cleanup is complete during shutdown request
+
+END_VAR
+
+VAR CONSTANT
+	EVENT_LOG_SUFFIX : T_MaxString := '_EventLog.sdf';
+	EVENT_LOG_2D_BUFFER_MAX_SIZE : UDINT := 500; //500 seems to work well
+	EVENT_LOG_2D_BUFFER_COUNT : UDINT := 50;
+	DB_SIZE_CRITICAL_MB : UDINT := 900000000;
+	DB_SIZE_WARNING_MB  : UDINT := 800000000;
+END_VAR]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[THIS^.bError := FALSE; // Reset Error Flag
+
+IF bResetDbInitialization THEN
+	ReInit(); // required if we want to reset between two cases while in the same run-time, logistics handled by MAIN
+	RETURN; // easier to return here, there should be nothing to add to the buffer anyways once a proper close has been performed.
+END_IF
+
+UpdateBuffer(); // Update buffers using the event array/size variables assigned during FB_Init()
+
+IF NOT THIS^.bBusy THEN	
+	IF NOT bDbTableHasBeenCreated THEN
+		THIS^.bBusy := TRUE;
+		CreateEventLog();
+	ELSIF bClose THEN
+		nState_CloseDB := 1;
+		fbDbTimer(IN := FALSE); // Stop/ Reset Timer
+		fbDbTimer(IN := TRUE, PT:=tDbTimeoutToCloseDb); // Start Timer
+		THIS^.bBusy := TRUE;
+		CloseEventLog();		
+	ELSIF NOT bClosed THEN
+//		THIS^.bBusy := TRUE;
+		LogEvents();		
+	END_IF	
+ELSE
+	IF (nState_CreateDB > 0) THEN
+		CreateEventLog();
+	ELSIF (nState_CloseDB > 0) THEN
+		CloseEventLog();
+	ELSIF (nState_LogEvents > 0) THEN
+		LogEvents();
+	ELSE 
+		THIS^.bBusy := FALSE;
+	END_IF
+END_IF
+
+
+
+
+
+]]></ST>
+    </Implementation>
+    <Method Name="_SetResultInfo" Id="{c0e6162c-99e7-4a52-94e0-0f9cc99ad0f0}">
+      <Declaration><![CDATA[METHOD PRIVATE _SetResultInfo : BOOL
+VAR_INPUT
+	nLangId : INT := 1033;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[_SetResultInfo := FALSE;
+
+CASE nState_SetResInfo OF
+	0:
+		IF tcMessage.RequestEventText(nLangId, EventText, SIZEOF(EventText)) THEN
+			nState_SetResInfo := 1;					
+		END_IF	
+	1:
+		IF tcMessage.RequestEventClassName(nLangId, EventClassName, SIZEOF(EventClassName)) THEN			
+			EventSourcePath := tcMessage.ipSourceInfo.sName;
+			EventId := tcMessage.nEventId;
+			
+			bError := (tcMessage.eSeverity = TcEventSeverity.Error) OR (tcMessage.eSeverity  = TcEventSeverity.Critical);
+			
+			nState_SetResInfo:=0;
+			_SetResultInfo := TRUE;			
+		END_IF
+END_CASE]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="CloseEventLog" Id="{f974c69d-4d43-483a-a706-cab6969ea027}">
+      <Declaration><![CDATA[METHOD PRIVATE CloseEventLog : BOOL]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF bClosed THEN
+	RETURN; // avoid redundant calls unless DB is re-initialized properly using the bDbResetInitialization flag
+END_IF
+fbDbTimer(); //Update timer
+IF  fbdbTimer.Q	THEN
+	bCriticalError := TRUE;
+	sCriticalErrorMessage := 'Database needed to force close due to timeout';
+	nState_CloseDB := 100;
+END_IF
+
+CASE nState_CloseDB OF
+	// Clean up any buffered events
+	1:
+		IF nWriteSqlIndex = n2dWriteBufferIndex THEN
+			//last buffer to clean up:
+			nPartialBufferIndex := n2dEventIndex;
+			n2dEventIndex := 0;
+			aWriteSqlReady[n2dWriteBufferIndex] := TRUE; //set partial buffer write flag
+			bCleanupLastIndexReached := TRUE;
+		ELSE
+			IF aWriteSqlReady[nWriteSqlIndex] = TRUE THEN
+				nPartialBufferIndex := EVENT_LOG_2D_BUFFER_MAX_SIZE;
+			ELSE
+				nPartialBufferIndex := 0;
+			END_IF
+				
+		END_IF
+		nState_CloseDB := 2;
+	2:
+		IF	aWriteSqlReady[nWriteSqlIndex] AND (nPartialBufferIndex > 0)THEN
+			IF fbPLCDBCmd.Execute(hDBID:=nDBID, ADR(sCmd), SIZEOF(sCmd),
+								 ADR(a2dEventBuffer[nWriteSqlIndex,1]), SIZEOF(a2dEventBuffer[nWriteSqlIndex,1]) * nPartialBufferIndex,
+								 ADR(aPara), SIZEOF(aPara)) THEN
+				IF fbPLCDBCmd.bError THEN
+					tcMessage := fbPLCDBCmd.ipTcResult;
+					sCriticalErrorMessage := 'Error during SQL INSERT while closing DB, will attempt to retry.';
+					bError := TRUE;
+				ELSE
+					aWriteSqlReady[nWriteSqlIndex] := FALSE;
+					nEventsLoggedCounter := nEventsLoggedCounter + nPartialBufferIndex;
+					nWriteSqlIndex := (nWriteSqlIndex + 1);
+					IF nWriteSqlIndex > EVENT_LOG_2D_BUFFER_COUNT THEN
+						nWriteSqlIndex := 1;
+					END_IF
+				END_IF		
+			END_IF
+		ELSIF bCleanupLastIndexReached THEN
+			nState_CloseDB := 100;
+		ELSE
+			aWriteSqlReady[nWriteSqlIndex] := FALSE;
+			nWriteSqlIndex := (nWriteSqlIndex + 1);
+			IF nWriteSqlIndex > EVENT_LOG_2D_BUFFER_COUNT THEN
+				nWriteSqlIndex := 1;
+			END_IF
+			nState_CloseDB := 1;
+		END_IF
+		
+	100:
+		
+		bClosed:= TRUE;
+		bClose := FALSE;
+		nState_CloseDB := 0; 
+END_CASE]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="CreateEventLog" Id="{08f9c527-2153-4d05-b564-5ef3ac279d32}">
+      <Declaration><![CDATA[METHOD PRIVATE CreateEventLog : BOOL
+
+VAR
+	i : UDINT;
+	bDbExists : BOOL := FALSE;
+	nFileSize : UDINT;
+//	sServer: STRING(255);
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+CASE nState_CreateDB OF
+	0:
+		// TESTING
+		stDBConfig.bAuthentification := FALSE; // TODO: Authentication??
+		THIS^.sServer := CONCAT(sDbPath, EVENT_LOG_SUFFIX);	
+		stDBConfig.sServer := THIS^.sServer;	
+		fbFindFileEntry(sNetID := THIS^.sAMSNetID, tTimeout := T#5S, sPathName := stDBConfig.sServer);
+		fbFindFileEntry.eCmd := eEnumCmd_First;
+		fbFindFileEntry( bExecute := FALSE);
+		fbFindFileEntry( bExecute := TRUE);
+		
+		
+//		// DB config:
+//		stDBConfig.bAuthentification := FALSE; // TODO: Authentication??
+//		stDBConfig.sServer := CONCAT(CONCAT(sDBPath,THIS^.sTimestamp),EVENT_LOG_SUFFIX);
+
+
+		
+		// ExpParameter Config
+		aPara[0].sParaName:= 'timestamp'; 			aPara[0].nParaSize:= 21; 	aPara[0].eParaType:= E_ExpParameterType.STRING_;	
+//		aPara[1].sParaName:= 'napeventid';			aPara[1].nParaSize:= 2;		aPara[1].eParaType:= E_ExpParameterType.UInt16;	
+		aPara[1].sParaName:= 'beckhofferrorid';		aPara[1].nParaSize:= 4;		aPara[1].eParaType:= E_ExpParameterType.UInt32;		
+		aPara[2].sParaName:= 'napeventid';			aPara[2].nParaSize:= 81;	aPara[2].eParaType:= E_ExpParameterType.STRING_;		
+//		aPara[3].sParaName:= 'severity';			aPara[3].nParaSize:= 2;		aPara[3].eParaType:= E_ExpParameterType.UInt16;	
+		aPara[3].sParaName:= 'severity';			aPara[3].nParaSize:= 21;	aPara[3].eParaType:= E_ExpParameterType.STRING_;		
+//		aPara[4].sParaName:= 'statesourceid';		aPara[4].nParaSize:= 2;		aPara[4].eParaType:= E_ExpParameterType.UInt16;	
+		aPara[4].sParaName:= 'statesourceid';		aPara[4].nParaSize:= 81;	aPara[4].eParaType:= E_ExpParameterType.STRING_;	
+//		aPara[5].sParaName:= 'frontendflag';		aPara[5].nParaSize:= 1;		aPara[5].eParaType:= E_ExpParameterType.Byte_;	
+		aPara[5].sParaName:= 'frontendflag';		aPara[5].nParaSize:= 1;		aPara[5].eParaType:= E_ExpParameterType.Boolean;		
+		aPara[6].sParaName:= 'message';				aPara[6].nParaSize:= 256;	aPara[6].eParaType:= E_ExpParameterType.STRING_;	
+		
+		nState_CreateDB := 1;
+		
+	1: 	
+	// Testing:
+		IF fbConfigTcDBSrv.Read(
+								pDBConfig := ADR(aDBConfig), 
+								cbDBConfig := SIZEOF(aDBConfig), 
+								pAutologGrpConfig := ADR(aAutoGrpConfig),
+								cbAutoLogGrpConfig := SIZEOF(aAutoGrpConfig),
+								pDBCount := ADR(nDbCount),
+								pAutoLogGrpCount := ADR(nAutoGrpCount)) THEN
+			IF fbConfigTcDBSrv.bError THEN
+				tcMessage := fbConfigTcDBSrv.ipTcResult;
+				nState_CreateDB := 255; 
+				sCriticalErrorMessage := 'DB config-read unsuccessful, will attempt to retry.';
+			ELSE
+				nState_CreateDB := 2; 
+			END_IF    
+		END_IF
+	
+	2: 	
+		IF nDbCount > 1 THEN
+			sCriticalErrorMessage := 'More than 1 DB connection exists, reconfigure DB Server prior to TC restart.';
+			ADSLOGSTR( ADSLOG_MSGTYPE_HINT OR ADSLOG_MSGTYPE_LOG, '%s','More than 1 DB connection exists, reconfigure DB Server prior to TC restart.');
+			bCriticalError := TRUE;
+			RETURN;
+		END_IF
+		FOR i:=0 TO nDbCount DO
+			IF FIND( aDBConfig[i].sServer, THIS^.sServer) > 0 THEN
+					nDBID := DINT_TO_UDINT(aDBConfig[i].hDBID);	
+				bDbExists := TRUE;
+				EXIT;
+			END_IF
+		END_FOR
+		
+		IF bDbExists THEN
+			nState_CreateDB := 5; // skip database config/creation
+		ELSE
+			nState_CreateDB := 3;
+		END_IF
+			
+	3:
+		// Create DB file:
+		IF fbPLCDBCreate.Database(pDatabaseConfig:= ADR(stDBConfig),cbDatabaseConfig := SIZEOF(stDBConfig),bCreateXMLConfig := FALSE,pDBID := ADR(nDBID) )THEN
+			IF fbPLCDBCreate.bError THEN
+				tcMessage := fbPLCDBCreate.ipTcResult;
+				nState_CreateDB := 255; // Fail State
+				sCriticalErrorMessage := 'DB file creation failed, will attempt to retry.';
+			ELSE
+				nState_CreateDB := 4; // Next State
+			END_IF
+		END_IF
+		
+	4: 	
+		// Configure Tc DB server:
+		IF fbConfigTcDBSrv.Create(pTcDBSrvConfig:= ADR(stDBConfig), cbTcDBSrvConfig:= SIZEOF(stDBConfig), bTemporary:= FALSE, pConfigID:= ADR(nDBID) ) THEN
+			tcMessage := fbConfigTcDBSrv.ipTcResult;
+			IF fbConfigTcDBSrv.bError THEN
+				tcMessage := fbConfigTcDBSrv.ipTcResult;
+				nState_CreateDB := 255;
+				sCriticalErrorMessage := 'DB file creation failed, reconfigure DB Server and create DB file prior to TC restart.';
+				ADSLOGSTR( ADSLOG_MSGTYPE_HINT OR ADSLOG_MSGTYPE_LOG, '%s','DB file creation failed, reconfigure DB Server and create DB file prior to TC restart.');
+				bCriticalError := TRUE;
+				RETURN;
+			ELSE
+				nState_CreateDB := 5;
+			END_IF
+		END_IF		
+
+	5: 
+		// Check DB file size and trigger error if size is too large.
+		fbFindFileEntry( bExecute := FALSE );
+        IF NOT fbFindFileEntry.bBusy THEN
+            IF NOT fbFindFileEntry.bError THEN
+                IF NOT fbFindFileEntry.bEOE THEN
+                    ADSLOGSTR( ADSLOG_MSGTYPE_HINT OR ADSLOG_MSGTYPE_LOG, 'FB_EnumFindFileEntry, find file name: %s', fbFindFileEntry.stFindFile.sFileName );
+                    fbFindFileEntry.eCmd := eEnumCmd_Next;
+                ELSE 
+					fbFindFileEntry.eCmd := eEnumCmd_Abort;
+                END_IF
+				
+				IF FIND(fbFindFileEntry.stFindFile.sFileName, EVENT_LOG_SUFFIX) > 0 THEN
+					nFileSize := fbFindFileEntry.stFindFile.fileSize.dwLowPart;
+					IF  nFileSize > DB_SIZE_CRITICAL_MB THEN
+						bCriticalError := TRUE;
+						sCriticalErrorMessage := CONCAT(CONCAT('DB size exceeding 900 MB, reduce DB file size prior to next restart. Current Database Size: ',UDINT_TO_STRING(nFileSize/1000000)),' MB');
+						ADSLOGSTR( ADSLOG_MSGTYPE_HINT OR ADSLOG_MSGTYPE_LOG, '%s',sCriticalErrorMessage);
+					ELSIF nFileSize > DB_SIZE_WARNING_MB THEN
+						sCriticalErrorMessage :=  CONCAT(CONCAT('DB size exceeding 800 MB, safe to continue, but file size should be monitored. Current Database Size: ',UDINT_TO_STRING(nFileSize/1000000)),' MB');
+						ADSLOGSTR( ADSLOG_MSGTYPE_HINT OR ADSLOG_MSGTYPE_LOG, '%s',sCriticalErrorMessage);
+					END_IF
+					nState_CreateDB   := 6;	
+				END_IF
+            ELSE (* log error finsding DB file *)
+                ADSLOGSTR( ADSLOG_MSGTYPE_ERROR OR ADSLOG_MSGTYPE_LOG, 'FB_EnumFindFileEntry error:%s', DWORD_TO_HEXSTR( fbFindFileEntry.nErrID, 0, FALSE ) );
+               	bCriticalError := TRUE;
+				sCriticalErrorMessage := 'Unable to find DB file on system, reconfigure DB Server and create DB file prior to TC restart.';
+				nState_CreateDB := 255;
+            END_IF
+        END_IF
+	6: 
+		// Set up DB Table/ Columns
+		THIS^.sTableName := CONCAT(THIS^.sTableNamePrefix, THIS^.sTimestamp);		
+	
+		arrTableColumns[0].sName := 'ID';
+		arrTableColumns[0].eType := E_ColumnType.BigInt;
+		arrTableColumns[0].nLength := 8; // E_ErrorID
+		arrTableColumns[0].sProperty := 'IDENTITY(1,1)';
+		
+		arrTableColumns[1].sName := 'Timestamp';
+		arrTableColumns[1].eType := E_ColumnType.NVarChar;
+		arrTableColumns[1].nLength := 25; // T_MaxString
+		
+		arrTableColumns[2].sName := 'BeckhoffErrorID';
+		arrTableColumns[2].eType := E_ColumnType.Integer;
+		arrTableColumns[2].nLength := 4; // UDINT
+		
+//		arrTableColumns[2].sName := 'NapEventID';
+//		arrTableColumns[2].eType := E_ColumnType.SmallInt; //enum
+//		arrTableColumns[2].nLength := 2; // E_EventID;
+		
+		arrTableColumns[3].sName := 'NapEventID';
+		arrTableColumns[3].eType := E_ColumnType.NVarChar; //enum
+		arrTableColumns[3].nLength := 81; // E_EventID as String
+		
+//		arrTableColumns[4].sName := 'Severity';
+//		arrTableColumns[4].eType := E_ColumnType.SmallInt; //enum
+//		arrTableColumns[4].nLength := 2; // E_ErrorSeverity
+
+		arrTableColumns[4].sName := 'Severity';
+		arrTableColumns[4].eType := E_ColumnType.NVarChar; //enum
+		arrTableColumns[4].nLength := 21; // E_ErrorSeverity as STRING
+
+//		arrTableColumns[6].sName := 'StateSourceID';
+//		arrTableColumns[6].eType := E_ColumnType.SmallInt;
+//		arrTableColumns[6].nLength := 2; // E_StateSourceID
+		
+		arrTableColumns[5].sName := 'StateSourceID';
+		arrTableColumns[5].eType := E_ColumnType.NVarChar;
+		arrTableColumns[5].nLength := 81; // E_StateSourceID as String
+		
+		arrTableColumns[6].sName := 'FrontEndFlag';
+		arrTableColumns[6].eType := E_ColumnType.BIT_;
+		arrTableColumns[6].nLength := 1; // BOOL
+		
+		arrTableColumns[7].sName := 'Message';
+		arrTableColumns[7].eType := E_ColumnType.NVarChar;
+		arrTableColumns[7].nLength := 256; // T_MaxString
+		
+		
+		IF fbPLCDBCreate.Table(hDBID:= nDBID, sTableName:= THIS^.sTableName, pTableCfg:= ADR(arrTableColumns), cbTableCfg:= SIZEOF(arrTableColumns)) THEN
+			tcMessage := fbPLCDBCreate.ipTcResult;
+			IF fbPLCDBCreate.bError THEN
+				tcMessage := fbPLCDBCreate.ipTcResult;
+				nState_CreateDB := 255;
+				sCriticalErrorMessage := 'DB Table creation failed, will attempt to retry.';
+			END_IF
+			nState_CreateDB := 255;			
+		END_IF
+		
+	
+	255: // Check for errors and finish
+	// TODO: May not need _SetResultsInfo() if we are checking for all DB object's bError flag along the way...
+		IF _SetResultInfo(1033) THEN			
+			IF NOT bError THEN
+				bDbTableHasBeenCreated := TRUE;
+				// Insert config
+				sCmd1 := CONCAT('INSERT INTO ', sTableName);
+				sCmd2 := ' ([Timestamp],[BeckhoffErrorID],[NapEventID],[Severity],[StateSourceID],[FrontEndFlag],[Message]) 
+							VALUES({timestamp},{beckhofferrorid},{napeventid},{severity},{statesourceid},{frontendflag},{message});';
+				CONCAT2(ADR(sCmd1), ADR(sCmd2), ADR(sCmd), SIZEOF(sCmd));
+				fbDbTimer(IN := TRUE, PT:=tDbTimeoutToLogPendingEvents);
+			END_IF
+			nState_CreateDB := 0;
+			THIS^.bBusy := FALSE;
+		END_IF		
+		
+END_CASE
+CreateEventLog := nState_CreateDB = 0;
+
+
+
+
+]]></ST>
+      </Implementation>
+    </Method>
+    <Property Name="DbClosed" Id="{caa5dd80-c87a-4a9e-a67b-cf43dcc49306}">
+      <Declaration><![CDATA[PROPERTY DbClosed : BOOL]]></Declaration>
+      <Get Name="Get" Id="{ed78941e-ff99-4514-8162-51688a371122}">
+        <Declaration><![CDATA[]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[DbClosed:=THIS^.bClosed;]]></ST>
+        </Implementation>
+      </Get>
+    </Property>
+    <Property Name="DbCreated" Id="{0c82eb87-c53e-43db-95f3-4e88ca5f5bd6}">
+      <Declaration><![CDATA[PROPERTY DbCreated : BOOL]]></Declaration>
+      <Get Name="Get" Id="{539e2420-dbf2-42e3-b403-36424a96c9fc}">
+        <Declaration><![CDATA[]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[DbCreated := THIS^.bDbTableHasBeenCreated;]]></ST>
+        </Implementation>
+      </Get>
+    </Property>
+    <Method Name="FB_init" Id="{b16611c7-b860-49da-9ff4-3971d72dbeef}">
+      <Declaration><![CDATA[METHOD FB_init : BOOL
+VAR_INPUT
+	bInitRetains : BOOL; // if TRUE, the retain variables are initialized (warm start / cold start)
+	bInCopyCode : BOOL;  // if TRUE, the instance afterwards gets moved into the copy code (online change)
+//	sDbPath : T_MaxString;
+//	sAmsNetID : T_MaxString;
+//	EventArray : REFERENCE TO ARRAY [1..SystemConfig.MAIN_EVENT_LOG_MAX_LENGTH] OF ST_Event;
+//	EventArraySize : REFERENCE TO UINT; 
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[//THIS^.sDBPath := sDbPath;
+//THIS^.sAMSNetID := sAmsNetID;
+//THIS^.stEventArrayIn REF= EventArray;
+//THIS^.nEventArraySize REF= EventArraySize;]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="LogEvents" Id="{239c12e1-3f0a-40d9-ad79-d3bf7aea9e65}">
+      <Declaration><![CDATA[METHOD PRIVATE LogEvents : BOOL
+
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[fbDbTimer(); //Update timer
+
+	CASE nState_LogEvents OF
+		0:	
+			IF	aWriteSqlReady[nWriteSqlIndex] THEN
+				// Buffer full
+				IF fbPLCDBCmd.Execute(hDBID:=nDBID, ADR(sCmd), SIZEOF(sCmd),
+									 ADR(a2dEventBuffer[nWriteSqlIndex,1]), SIZEOF(a2dEventBuffer[nWriteSqlIndex,1]) * EVENT_LOG_2D_BUFFER_MAX_SIZE,
+									 ADR(aPara), SIZEOF(aPara)) THEN
+					IF fbPLCDBCmd.bError THEN
+						tcMessage := fbPLCDBCmd.ipTcResult;
+						sCriticalErrorMessage := 'Error during SQL INSERT for full buffer';
+						bError := TRUE;
+					ELSE
+						aWriteSqlReady[nWriteSqlIndex] := FALSE;
+						nEventsLoggedCounter := nEventsLoggedCounter + EVENT_LOG_2D_BUFFER_MAX_SIZE;
+						nWriteSqlIndex := (nWriteSqlIndex + 1) ;
+						IF nWriteSqlIndex > EVENT_LOG_2D_BUFFER_COUNT THEN
+							nWriteSqlIndex := 1;
+						END_IF
+						nState_LogEvents := 100;
+					END_IF
+					
+				END_IF
+			ELSIF (fbDbTimer.Q AND n2dEventIndex > 0) THEN
+				// Timeout occured
+					nPartialBufferIndex := n2dEventIndex;
+					n2dEventIndex := 0;
+					n2dWriteBufferIndex := n2dWriteBufferIndex + 1;
+					IF n2dWriteBufferIndex > EVENT_LOG_2D_BUFFER_COUNT THEN
+						n2dWriteBufferIndex := 1;	
+					END_IF
+					nState_LogEvents := 1;
+			ELSE
+				nState_LogEvents := 0;
+			END_IF
+		1:
+			// Timeout State, Log partial buffer
+			IF fbPLCDBCmd.Execute(hDBID:=nDBID, ADR(sCmd), SIZEOF(sCmd),
+								ADR(a2dEventBuffer[nWriteSqlIndex,1]), 
+									SIZEOF(a2dEventBuffer[nWriteSqlIndex,1])*nPartialBufferIndex,
+										ADR(aPara), SIZEOF(aPara)) THEN
+				IF fbPLCDBCmd.bError THEN
+					tcMessage := fbPLCDBCmd.ipTcResult;
+					sCriticalErrorMessage := 'Error during SQL INSERT for partial buffer';
+					bError := TRUE;
+				ELSE
+					aWriteSqlReady[nWriteSqlIndex] := FALSE;
+					nEventsLoggedCounter := nEventsLoggedCounter + nPartialBufferIndex;
+					nWriteSqlIndex :=(nWriteSqlIndex + 1) ;
+					IF nWriteSqlIndex > EVENT_LOG_2D_BUFFER_COUNT THEN
+						nWriteSqlIndex := 1;
+					END_IF
+					nState_LogEvents := 100;
+				END_IF		
+			END_IF
+
+		100:
+			IF _SetResultInfo(1033) THEN
+				IF NOT bError THEN
+					nState_LogEvents := 0;						
+					fbDbTimer(IN := FALSE); // Stop/ Reset Timer
+					fbDbTimer(IN := TRUE, PT:=tDbTimeoutToLogPendingEvents); // Start Timer
+				END_IF
+			END_IF	
+			
+	END_CASE
+
+LogEvents := nState_LogEvents = 0;]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="ReInit" Id="{ceb7664e-a999-44be-9ba2-9b79c1b6bebc}">
+      <Declaration><![CDATA[METHOD PRIVATE ReInit : BOOL
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[// reset closing variables
+bClosed := FALSE;
+bClose := FALSE;
+bCleanupLastIndexReached := FALSE;
+bDbTableHasBeenCreated := FALSE;
+
+// Reset SQL write flag array
+FOR nWriteSqlIndex :=1 TO EVENT_LOG_2D_BUFFER_COUNT DO
+	aWriteSqlReady[nWriteSqlIndex] := FALSE;
+END_FOR
+
+// reset logging variables
+nWriteSqlIndex := 1;
+n2dWriteBufferIndex := 1;
+n2dEventIndex := 0;
+nPartialBufferIndex := 0; // redundant reset
+nEventArrayIndex := 0; // redundant reset
+
+// reset reset flag
+bResetDbInitialization := FALSE;
+
+// reset state variables
+nState_CreateDB := 0;
+nState_CloseDB := 0;
+nState_LogEvents := 0;
+nState_SetResInfo := 0;
+
+// Redundant index reset
+THIS^.nEventArraySize := 0;
+
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="UpdateBuffer" Id="{d19842e1-86ad-4928-b3ec-cc8d2dd7a3f7}">
+      <Declaration><![CDATA[METHOD PRIVATE UpdateBuffer : BOOL
+
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[// Update Buffer regardless of state:	
+FOR nEventArrayIndex:=1 TO nEventArraySize DO
+	IF n2dEventIndex < EVENT_LOG_2D_BUFFER_MAX_SIZE THEN
+		// continuing unfilled buffer
+		n2dEventIndex := n2dEventIndex + 1;
+		a2dEventBuffer[n2dWriteBufferIndex,n2dEventIndex] := stEventArrayIn[nEventArrayIndex];	
+	ELSE
+		aWriteSqlReady[n2dWriteBufferIndex] := TRUE; //flag current buffer as full
+		n2dWriteBufferIndex := n2dWriteBufferIndex + 1; //imcrement buffer index
+		n2dEventIndex := 0; // reset event write index
+		IF n2dWriteBufferIndex > EVENT_LOG_2D_BUFFER_COUNT THEN // check if buffer index is out of range
+			n2dWriteBufferIndex := 1;	
+		END_IF
+		IF aWriteSqlReady[n2dWriteBufferIndex] THEN //new index has not been properly logged and is still queued...
+			bError:=TRUE; //Flag error, need to handle in main
+			RETURN; // stop populating buffer
+		ELSE
+			// Continue populating buffer:
+			n2dEventIndex := n2dEventIndex + 1;
+			a2dEventBuffer[n2dWriteBufferIndex,n2dEventIndex] := stEventArrayIn[nEventArrayIndex];	
+		END_IF
+	END_IF
+END_FOR
+nEventArraySize := 0; // After buffering, reset the index for MAIN]]></ST>
+      </Implementation>
+    </Method>
+    <LineIds Name="FB_DbEventLogger">
+      <LineId Id="1082" Count="1" />
+      <LineId Id="952" Count="1" />
+      <LineId Id="982" Count="0" />
+      <LineId Id="954" Count="5" />
+      <LineId Id="1084" Count="0" />
+      <LineId Id="960" Count="1" />
+      <LineId Id="1086" Count="0" />
+      <LineId Id="1075" Count="1" />
+      <LineId Id="1079" Count="0" />
+      <LineId Id="962" Count="1" />
+      <LineId Id="1081" Count="0" />
+      <LineId Id="964" Count="17" />
+      <LineId Id="9" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_DbEventLogger._SetResultInfo">
+      <LineId Id="9" Count="16" />
+      <LineId Id="5" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_DbEventLogger.CloseEventLog">
+      <LineId Id="112" Count="0" />
+      <LineId Id="114" Count="1" />
+      <LineId Id="113" Count="0" />
+      <LineId Id="136" Count="2" />
+      <LineId Id="129" Count="0" />
+      <LineId Id="139" Count="0" />
+      <LineId Id="128" Count="0" />
+      <LineId Id="69" Count="9" />
+      <LineId Id="150" Count="0" />
+      <LineId Id="79" Count="0" />
+      <LineId Id="151" Count="3" />
+      <LineId Id="80" Count="7" />
+      <LineId Id="116" Count="1" />
+      <LineId Id="88" Count="2" />
+      <LineId Id="92" Count="0" />
+      <LineId Id="146" Count="2" />
+      <LineId Id="100" Count="2" />
+      <LineId Id="120" Count="1" />
+      <LineId Id="135" Count="0" />
+      <LineId Id="155" Count="0" />
+      <LineId Id="141" Count="0" />
+      <LineId Id="143" Count="1" />
+      <LineId Id="140" Count="0" />
+      <LineId Id="123" Count="0" />
+      <LineId Id="125" Count="0" />
+      <LineId Id="104" Count="1" />
+      <LineId Id="130" Count="0" />
+      <LineId Id="106" Count="0" />
+      <LineId Id="110" Count="0" />
+      <LineId Id="109" Count="0" />
+      <LineId Id="12" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_DbEventLogger.CreateEventLog">
+      <LineId Id="139" Count="2" />
+      <LineId Id="268" Count="0" />
+      <LineId Id="271" Count="0" />
+      <LineId Id="293" Count="0" />
+      <LineId Id="269" Count="0" />
+      <LineId Id="275" Count="0" />
+      <LineId Id="270" Count="0" />
+      <LineId Id="417" Count="0" />
+      <LineId Id="420" Count="0" />
+      <LineId Id="418" Count="1" />
+      <LineId Id="244" Count="0" />
+      <LineId Id="142" Count="1" />
+      <LineId Id="227" Count="0" />
+      <LineId Id="229" Count="0" />
+      <LineId Id="228" Count="0" />
+      <LineId Id="234" Count="0" />
+      <LineId Id="236" Count="1" />
+      <LineId Id="335" Count="0" />
+      <LineId Id="344" Count="0" />
+      <LineId Id="239" Count="2" />
+      <LineId Id="330" Count="0" />
+      <LineId Id="354" Count="1" />
+      <LineId Id="242" Count="0" />
+      <LineId Id="145" Count="0" />
+      <LineId Id="249" Count="0" />
+      <LineId Id="274" Count="0" />
+      <LineId Id="146" Count="0" />
+      <LineId Id="276" Count="0" />
+      <LineId Id="279" Count="6" />
+      <LineId Id="287" Count="2" />
+      <LineId Id="367" Count="0" />
+      <LineId Id="290" Count="2" />
+      <LineId Id="277" Count="1" />
+      <LineId Id="294" Count="0" />
+      <LineId Id="368" Count="1" />
+      <LineId Id="444" Count="0" />
+      <LineId Id="371" Count="1" />
+      <LineId Id="370" Count="0" />
+      <LineId Id="307" Count="1" />
+      <LineId Id="313" Count="0" />
+      <LineId Id="318" Count="0" />
+      <LineId Id="356" Count="0" />
+      <LineId Id="314" Count="1" />
+      <LineId Id="317" Count="0" />
+      <LineId Id="311" Count="0" />
+      <LineId Id="316" Count="0" />
+      <LineId Id="296" Count="0" />
+      <LineId Id="357" Count="1" />
+      <LineId Id="299" Count="0" />
+      <LineId Id="360" Count="0" />
+      <LineId Id="359" Count="0" />
+      <LineId Id="300" Count="3" />
+      <LineId Id="373" Count="0" />
+      <LineId Id="304" Count="2" />
+      <LineId Id="298" Count="0" />
+      <LineId Id="273" Count="0" />
+      <LineId Id="155" Count="0" />
+      <LineId Id="245" Count="0" />
+      <LineId Id="156" Count="2" />
+      <LineId Id="381" Count="0" />
+      <LineId Id="159" Count="0" />
+      <LineId Id="374" Count="0" />
+      <LineId Id="445" Count="0" />
+      <LineId Id="375" Count="1" />
+      <LineId Id="160" Count="3" />
+      <LineId Id="323" Count="0" />
+      <LineId Id="272" Count="0" />
+      <LineId Id="434" Count="0" />
+      <LineId Id="398" Count="5" />
+      <LineId Id="405" Count="0" />
+      <LineId Id="416" Count="0" />
+      <LineId Id="407" Count="0" />
+      <LineId Id="426" Count="0" />
+      <LineId Id="423" Count="0" />
+      <LineId Id="428" Count="0" />
+      <LineId Id="427" Count="0" />
+      <LineId Id="431" Count="1" />
+      <LineId Id="442" Count="0" />
+      <LineId Id="433" Count="0" />
+      <LineId Id="429" Count="0" />
+      <LineId Id="443" Count="0" />
+      <LineId Id="430" Count="0" />
+      <LineId Id="421" Count="0" />
+      <LineId Id="425" Count="0" />
+      <LineId Id="408" Count="2" />
+      <LineId Id="413" Count="0" />
+      <LineId Id="412" Count="0" />
+      <LineId Id="411" Count="0" />
+      <LineId Id="397" Count="0" />
+      <LineId Id="164" Count="0" />
+      <LineId Id="435" Count="0" />
+      <LineId Id="259" Count="0" />
+      <LineId Id="261" Count="0" />
+      <LineId Id="165" Count="7" />
+      <LineId Id="340" Count="0" />
+      <LineId Id="342" Count="0" />
+      <LineId Id="341" Count="0" />
+      <LineId Id="173" Count="0" />
+      <LineId Id="343" Count="0" />
+      <LineId Id="220" Count="1" />
+      <LineId Id="219" Count="0" />
+      <LineId Id="177" Count="0" />
+      <LineId Id="337" Count="1" />
+      <LineId Id="336" Count="0" />
+      <LineId Id="339" Count="0" />
+      <LineId Id="182" Count="2" />
+      <LineId Id="348" Count="0" />
+      <LineId Id="346" Count="1" />
+      <LineId Id="345" Count="0" />
+      <LineId Id="189" Count="4" />
+      <LineId Id="332" Count="1" />
+      <LineId Id="331" Count="0" />
+      <LineId Id="350" Count="0" />
+      <LineId Id="352" Count="1" />
+      <LineId Id="351" Count="0" />
+      <LineId Id="334" Count="0" />
+      <LineId Id="194" Count="3" />
+      <LineId Id="258" Count="0" />
+      <LineId Id="198" Count="2" />
+      <LineId Id="380" Count="0" />
+      <LineId Id="251" Count="0" />
+      <LineId Id="378" Count="0" />
+      <LineId Id="252" Count="0" />
+      <LineId Id="250" Count="0" />
+      <LineId Id="201" Count="3" />
+      <LineId Id="377" Count="0" />
+      <LineId Id="205" Count="2" />
+      <LineId Id="263" Count="3" />
+      <LineId Id="262" Count="0" />
+      <LineId Id="222" Count="0" />
+      <LineId Id="208" Count="1" />
+      <LineId Id="389" Count="0" />
+      <LineId Id="210" Count="7" />
+      <LineId Id="5" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_DbEventLogger.DbClosed.Get">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_DbEventLogger.DbCreated.Get">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_DbEventLogger.FB_init">
+      <LineId Id="32" Count="0" />
+      <LineId Id="31" Count="0" />
+      <LineId Id="19" Count="0" />
+      <LineId Id="18" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_DbEventLogger.LogEvents">
+      <LineId Id="381" Count="0" />
+      <LineId Id="385" Count="2" />
+      <LineId Id="401" Count="0" />
+      <LineId Id="500" Count="0" />
+      <LineId Id="402" Count="3" />
+      <LineId Id="505" Count="0" />
+      <LineId Id="509" Count="0" />
+      <LineId Id="406" Count="2" />
+      <LineId Id="410" Count="0" />
+      <LineId Id="523" Count="0" />
+      <LineId Id="411" Count="7" />
+      <LineId Id="499" Count="0" />
+      <LineId Id="420" Count="0" />
+      <LineId Id="527" Count="0" />
+      <LineId Id="471" Count="0" />
+      <LineId Id="473" Count="1" />
+      <LineId Id="468" Count="0" />
+      <LineId Id="498" Count="0" />
+      <LineId Id="515" Count="1" />
+      <LineId Id="437" Count="1" />
+      <LineId Id="501" Count="0" />
+      <LineId Id="483" Count="4" />
+      <LineId Id="504" Count="0" />
+      <LineId Id="508" Count="0" />
+      <LineId Id="488" Count="1" />
+      <LineId Id="491" Count="1" />
+      <LineId Id="524" Count="0" />
+      <LineId Id="493" Count="4" />
+      <LineId Id="482" Count="0" />
+      <LineId Id="451" Count="2" />
+      <LineId Id="518" Count="0" />
+      <LineId Id="454" Count="0" />
+      <LineId Id="461" Count="1" />
+      <LineId Id="521" Count="0" />
+      <LineId Id="463" Count="0" />
+      <LineId Id="519" Count="0" />
+      <LineId Id="464" Count="0" />
+      <LineId Id="467" Count="0" />
+      <LineId Id="5" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_DbEventLogger.ReInit">
+      <LineId Id="7" Count="4" />
+      <LineId Id="33" Count="0" />
+      <LineId Id="12" Count="0" />
+      <LineId Id="34" Count="3" />
+      <LineId Id="13" Count="4" />
+      <LineId Id="21" Count="0" />
+      <LineId Id="18" Count="1" />
+      <LineId Id="5" Count="0" />
+      <LineId Id="23" Count="0" />
+      <LineId Id="22" Count="0" />
+      <LineId Id="24" Count="3" />
+      <LineId Id="32" Count="0" />
+      <LineId Id="28" Count="0" />
+      <LineId Id="20" Count="0" />
+      <LineId Id="31" Count="0" />
+      <LineId Id="30" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_DbEventLogger.UpdateBuffer">
+      <LineId Id="6" Count="22" />
+      <LineId Id="5" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

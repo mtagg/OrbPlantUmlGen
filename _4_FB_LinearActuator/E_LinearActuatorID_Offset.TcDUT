@@ -1,0 +1,16 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="E_LinearActuatorID_Offset" Id="{7af247c9-bfd3-4712-ac24-dc74f3c27c73}">
+    <Declaration><![CDATA[{attribute 'qualified_only'}
+//{attribute 'strict'}
+TYPE E_LinearActuatorID_Offset :
+(	
+	LinearActuatorHoming := 1, // ie: R_Arm_LinearActuatorHoming would be 1251 in E_StateSourceID if R_LinearActuator was 1250
+	LinearActuatorJog := 2,
+	LinearActuatorHalt := 3,
+	LinearActuatorStop :=4,
+	LinearActuatorReset :=5
+);
+END_TYPE]]></Declaration>
+  </DUT>
+</TcPlcObject>

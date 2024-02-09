@@ -1,0 +1,34 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="E_ArmID_Offset" Id="{830dd9c9-3712-4b12-b510-7dabcb99754a}">
+    <Declaration><![CDATA[{attribute 'qualified_only'}
+//{attribute 'strict'}
+TYPE E_ArmID_Offset :
+(	
+	ShoulderRollJoint := 110, // ie: R_Arm_ShoulderRollJoint would be 1110 in E_StateSourceID if R_Arm was 1000
+	ShoulderYawJoint := 120,
+	ElbowJoint := 130,
+	G1Joint := 140,
+	G2Joint := 150,
+	G3Joint := 160,
+	
+	ShoulderRollDcMotor := 210,
+	ShoulderYawDcMotor := 220,
+	ElbowDcMotor := 230,
+	StepperMotor := 240,
+	LinearActuator := 250,
+	
+	Tool	:= 310,
+	ClutchPedal := 320,
+	
+	SelfTest := 410,
+	Ergonomics := 420,
+	Teleoperation := 430,
+	InverseStatics := 440,
+	ForwardKinematics := 450
+);
+END_TYPE
+
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

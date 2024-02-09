@@ -1,0 +1,14 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="ST_LinearActuatorAxis" Id="{8516fdcc-317b-41e1-b132-ce649b603767}">
+    <Declaration><![CDATA[TYPE ST_LinearActuatorAxis :
+STRUCT
+	stAxisRef	: AXIS_REF;
+	bForceHoming : BOOL;
+	bAtTopPosition 	: BOOL;
+	bAtBottomPosition : BOOL;
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>

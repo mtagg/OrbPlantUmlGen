@@ -1,0 +1,387 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FB_LinearActuatorHoming" Id="{98613fa1-5787-4a0d-904b-884a5ef89726}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_LinearActuatorHoming EXTENDS FB_StateMachine IMPLEMENTS  I_StateMachine
+VAR_INPUT
+	bStart : BOOL;	
+	
+	stParentsAxis : REFERENCE TO ST_LinearActuatorAxis;
+END_VAR
+VAR_OUTPUT
+END_VAR
+VAR
+	eInnerState : E_LinearActuatorHomingStates;
+	bCompleted : BOOL;
+	dtTimeCompleted: DATE_AND_TIME;
+	
+	bEnabledBeforeHoming : BOOL;
+	
+	stAxisRef : REFERENCE TO AXIS_REF;
+	fbPower :  MC_Power;
+	fbReset : MC_Reset;
+	fbHalt : MC_Halt;
+	fbJog : MC_JOG;
+	fbHome : MC_Home;
+	bForceHoming : REFERENCE TO BOOL;
+	bAtTopPosition : REFERENCE TO BOOL;
+	nPLC_Cycles	: INT;
+END_VAR]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[OuterLopSM();]]></ST>
+    </Implementation>
+    <Folder Name="Properties" Id="{7d6a8689-826a-448c-8d97-f7c7dbbda0f1}" />
+    <Method Name="Disable" Id="{dc5cefe9-2bb7-4f82-b9a6-fa2beb604f50}">
+      <Declaration><![CDATA[METHOD Disable : BOOL]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[fbPower(Axis:=stAxisRef,Enable:=FALSE);
+
+IF fbPower.Status = FALSE THEN
+	Disable := TRUE;
+ELSIF fbPower.Error THEN
+	{warning 'Is below call acceptable here?'}
+	fbEventHandler(nBeckhoffID:=fbPower.ErrorID);
+	{warning 'TODO: trigger e-stop'}
+	Disable := TRUE;
+ELSE // wait for fbPower to disable Axis 
+	Disable := FALSE;
+END_IF]]></ST>
+      </Implementation>
+    </Method>
+    <Property Name="HomingNeeded" Id="{024da280-77c6-4280-b02f-01105e598759}" FolderPath="Properties\">
+      <Declaration><![CDATA[PROPERTY HomingNeeded : BOOL]]></Declaration>
+      <Get Name="Get" Id="{c1df0735-9a7b-4668-b771-b6521fe43398}">
+        <Declaration><![CDATA[]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[// TODO: Check if dtTimeCompleted is too old. If so set HomingNeeded := TRUE
+IF bForceHoming THEN
+	HomingNeeded := TRUE;
+ELSE
+	HomingNeeded := NOT bCompleted;
+END_IF
+]]></ST>
+        </Implementation>
+      </Get>
+    </Property>
+    <Method Name="InnerLoopSM" Id="{65f630f1-e099-4506-9190-2b5e2413b6e6}">
+      <Declaration><![CDATA[METHOD InnerLoopSM : BOOL]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[// update all children FBs
+fbPower(Axis:=stAxisRef);
+fbReset(Axis:=stAxisRef);
+fbJog(Axis:=stAxisRef);
+
+CASE CyclicInnerCase(TO_STRING(eInnerState)) OF
+	E_LinearActuatorHomingStates.Idle:
+		IF bStart THEN
+			bStart := FALSE;
+			IF HomingNeeded THEN
+				ChangeInnerState(E_LinearActuatorHomingStates.CheckIfEnabled);
+			ELSE
+				// Stay in Idle as homing is not needed
+			END_IF
+		END_IF
+
+	E_LinearActuatorHomingStates.CheckIfEnabled:
+		bEnabledBeforeHoming := fbPower.Status; // fbPower.Status = TRUE if stAxisRef is enabled
+		ChangeInnerState(E_LinearActuatorHomingStates.ResetAxis1);
+		
+	E_LinearActuatorHomingStates.ResetAxis1:
+		fbReset(Axis:=stAxisRef,Execute:=TRUE);
+		nPLC_Cycles := 0;
+		ChangeInnerState(E_LinearActuatorHomingStates.ResetAxis2);
+		
+	E_LinearActuatorHomingStates.ResetAxis2:
+		nPLC_Cycles := nPLC_Cycles +1; // # of PLC cycles since reset was started
+		IF fbReset.Done THEN
+			IF bEnabledBeforeHoming THEN
+				ChangeInnerState(E_LinearActuatorHomingStates.MoveToTop);
+			ELSE
+				ChangeInnerState(E_LinearActuatorHomingStates.EnableAxis1);
+			END_IF
+		ELSIF fbReset.Error THEN
+			fbEventHandler(nBeckhoffID:=fbReset.ErrorID);
+			
+			bError := TRUE;
+		ELSE
+			IF nPLC_Cycles > SystemConfig.nLINEAR_ACTUATOR_MAX_CYCLES_TO_RESET THEN
+				sErrorDetails := CONCAT3('fbReset.Done=FALSE after ',LINT_TO_STRING(SystemConfig.nLINEAR_ACTUATOR_MAX_CYCLES_TO_RESET), ' PLC cycles');
+				fbEventHandler(eNapID:=E_Event.TASK_FAILED,sMessage:=sErrorDetails);
+		
+				bError := TRUE;
+			ELSE
+				// wait... fbReset is still busy
+			END_IF
+			
+		END_IF
+		
+	E_LinearActuatorHomingStates.EnableAxis1:
+		fbPower(Axis:=stAxisRef,Enable:=TRUE, Enable_Positive := TRUE, Enable_Negative := TRUE);
+		nPLC_Cycles := 0;
+		ChangeInnerState(E_LinearActuatorHomingStates.EnableAxis2);
+		
+	E_LinearActuatorHomingStates.EnableAxis2:
+		nPLC_Cycles := nPLC_Cycles +1; // # of PLC cycles since power command was started
+		IF fbPower.Error THEN
+			fbEventHandler(nBeckhoffID:=fbPower.ErrorID);
+			bError := TRUE;
+		ELSIF fbPower.Status = TRUE THEN // fbPower.Status = TRUE if stAxisRef is enabled
+			sErrorDetails := CONCAT('# of Cycles to Enable Axis=',LINT_TO_STRING(nPLC_Cycles));
+			fbEventHandler(eNapID:=E_Event.REQUEST_COMPLETED,sMessage:=sErrorDetails);
+			
+			fbReset(Axis:=stAxisRef,Execute:=FALSE); // reset FB to prepare it for next call 
+			ChangeInnerState(E_LinearActuatorHomingStates.MoveToTop);
+		ELSE
+			IF nPLC_Cycles > SystemConfig.nLINEAR_ACTUATOR_MAX_CYCLES_TO_ENABLE THEN
+				sErrorDetails := CONCAT3('fbPower.Status=FALSE after ',LINT_TO_STRING(SystemConfig.nLINEAR_ACTUATOR_MAX_CYCLES_TO_ENABLE), ' PLC cycles');
+				fbEventHandler(eNapID:=E_Event.TASK_FAILED,sMessage:=sErrorDetails);
+		
+				bError := TRUE;
+			ELSE
+				// Wait...	fbPower is still busy 		
+			END_IF
+		END_IF
+		
+	E_LinearActuatorHomingStates.MoveToTop:
+		fbJog(Axis:=stAxisRef, Mode:=MC_JOGMODE_CONTINOUS, JogForward:=TRUE, JogBackwards:=FALSE,Velocity:=SystemConfig.fLINEAR_ACTUATOR_HOMING_FAST_SPEED);
+		IF fbJog.Error THEN
+			fbEventHandler(nBeckhoffID:=fbJog.ErrorID);
+		
+			bError := TRUE;
+		ELSIF fbJog.CommandAborted THEN
+			sErrorDetails := 'fbJog.CommandAborted=TRUE';
+			fbEventHandler(eNapID:=E_Event.TASK_FAILED,sMessage:=sErrorDetails);
+	
+			bError := TRUE;
+		ELSE
+			IF fbJog.Done THEN
+				sErrorDetails := 'fbJog.Done=TRUE unexpectedly';
+				fbEventHandler(eNapID:=E_Event.TASK_WARNING,sMessage:=sErrorDetails);
+			END_IF
+			IF bAtTopPosition THEN
+				fbJog(Axis:=stAxisRef, JogForward:=FALSE, JogBackwards:=FALSE); // reset jog
+				ChangeInnerState(E_LinearActuatorHomingStates.WaitingForHalt);
+			ELSE 
+				// wait
+			END_IF
+		END_IF
+
+	E_LinearActuatorHomingStates.WaitingForHalt:
+		fbHalt(Axis:=stAxisRef,Execute:=TRUE);
+		IF fbHalt.Done THEN
+			fbHalt(Axis:=stAxisRef,Execute:=FALSE);
+			ChangeInnerState(E_LinearActuatorHomingStates.SettingHomePos);
+		ELSIF fbHalt.Error THEN
+			fbEventHandler(nBeckhoffID:=fbHalt.ErrorID);
+				
+			bError := TRUE;
+		ELSE
+			// wait... fbHalt.busy
+		END_IF
+
+	E_LinearActuatorHomingStates.SettingHomePos:
+		fbHome(Axis:=stAxisRef, Execute:=TRUE, Position:=0, HomingMode:=MC_HomingMode.MC_Direct); // Set to zero current position (linear actuator fully extended) 
+		IF fbHome.Error THEN
+			fbEventHandler(nBeckhoffID:=fbHome.ErrorID);
+		
+			bError := TRUE;
+		ELSIF fbHome.CommandAborted THEN
+			sErrorDetails := 'fbHome.CommandAborted=TRUE';
+			fbEventHandler(eNapID:=E_Event.TASK_FAILED,sMessage:=sErrorDetails);
+	
+			bError := TRUE;
+		ELSIF fbHome.Done THEN
+			fbHome(Axis:=stAxisRef, Execute:=FALSE); // reset homing command
+			IF bEnabledBeforeHoming THEN
+				ChangeInnerState(E_LinearActuatorHomingStates.WrapUp);
+			ELSE
+				ChangeInnerState(E_LinearActuatorHomingStates.DisableAxis);
+			END_IF
+		ELSE
+			// wait... fbHome.busy
+		END_IF
+		
+	E_LinearActuatorHomingStates.DisableAxis:
+		fbPower(Axis:=stAxisRef,Enable:=FALSE);
+		IF fbPower.Error THEN
+			fbEventHandler(nBeckhoffID:=fbPower.ErrorID);
+			bError := TRUE;
+		ELSIF fbPower.Status = FALSE THEN // fbPower.Status = FALSE if stAxisRef is disabled
+			ChangeInnerState(E_LinearActuatorHomingStates.WrapUp);
+		ELSE
+			// Wait...	fbPower is still busy 		
+		END_IF
+
+	
+	E_LinearActuatorHomingStates.WrapUp:
+		bCompleted := TRUE;
+		dtTimeCompleted := DateTime.GVL_DATE_TIME;
+		ChangeInnerState(E_LinearActuatorHomingStates.Idle);
+END_CASE
+]]></ST>
+      </Implementation>
+    </Method>
+    <Property Name="Position" Id="{3e0e54f1-2903-4669-820c-bd1c361d472d}" FolderPath="Properties\">
+      <Declaration><![CDATA[PROPERTY Position : LREAL]]></Declaration>
+      <Get Name="Get" Id="{7da649ca-e776-4c2d-99ff-05029157bb03}">
+        <Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[Position := stAxisRef.NcToPlc.ActPos;]]></ST>
+        </Implementation>
+      </Get>
+    </Property>
+    <Method Name="Reset" Id="{3368c01c-0348-4f45-aa0c-66f9d65d417e}">
+      <Declaration><![CDATA[METHOD Reset : BOOL
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[// reset variables specific to this FB 
+bCompleted := FALSE;
+dtTimeCompleted := DATE_AND_TIME#1970-1-1-0:0:0;
+
+// Reactivate children FBs
+//none]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Setup" Id="{3c8abc24-fe83-44dc-8752-598d3997b988}">
+      <Declaration><![CDATA[METHOD Setup : BOOL
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[eStateMachineSourceID := eStateSourceID;
+stAxisRef REF= stParentsAxis.stAxisRef;
+
+bForceHoming REF= stParentsAxis.bForceHoming;
+bAtTopPosition REF= stParentsAxis.bAtTopPosition;
+
+SetInnerEnumeration(nStateEnum:=THIS^.eInnerState);]]></ST>
+      </Implementation>
+    </Method>
+    <Property Name="TimeCompleted" Id="{f64c58ca-18c0-47fe-b0bb-9a68660a4358}" FolderPath="Properties\">
+      <Declaration><![CDATA[PROPERTY TimeCompleted : DATE_AND_TIME]]></Declaration>
+      <Get Name="Get" Id="{1c1e4344-3ed8-459c-a41e-def599d5b59f}">
+        <Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[TimeCompleted := dtTimeCompleted;]]></ST>
+        </Implementation>
+      </Get>
+    </Property>
+    <LineIds Name="FB_LinearActuatorHoming">
+      <LineId Id="9" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_LinearActuatorHoming.Disable">
+      <LineId Id="20" Count="0" />
+      <LineId Id="45" Count="0" />
+      <LineId Id="9" Count="0" />
+      <LineId Id="35" Count="0" />
+      <LineId Id="46" Count="0" />
+      <LineId Id="55" Count="0" />
+      <LineId Id="54" Count="0" />
+      <LineId Id="51" Count="0" />
+      <LineId Id="50" Count="0" />
+      <LineId Id="52" Count="1" />
+      <LineId Id="48" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_LinearActuatorHoming.HomingNeeded.Get">
+      <LineId Id="20" Count="2" />
+      <LineId Id="24" Count="1" />
+      <LineId Id="23" Count="0" />
+      <LineId Id="11" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_LinearActuatorHoming.InnerLoopSM">
+      <LineId Id="152" Count="2" />
+      <LineId Id="296" Count="0" />
+      <LineId Id="155" Count="1" />
+      <LineId Id="597" Count="0" />
+      <LineId Id="159" Count="9" />
+      <LineId Id="170" Count="0" />
+      <LineId Id="175" Count="0" />
+      <LineId Id="336" Count="0" />
+      <LineId Id="565" Count="0" />
+      <LineId Id="567" Count="0" />
+      <LineId Id="595" Count="0" />
+      <LineId Id="569" Count="2" />
+      <LineId Id="596" Count="0" />
+      <LineId Id="573" Count="0" />
+      <LineId Id="590" Count="3" />
+      <LineId Id="589" Count="0" />
+      <LineId Id="575" Count="13" />
+      <LineId Id="563" Count="1" />
+      <LineId Id="177" Count="0" />
+      <LineId Id="179" Count="3" />
+      <LineId Id="594" Count="0" />
+      <LineId Id="185" Count="7" />
+      <LineId Id="238" Count="0" />
+      <LineId Id="237" Count="0" />
+      <LineId Id="193" Count="8" />
+      <LineId Id="203" Count="0" />
+      <LineId Id="227" Count="0" />
+      <LineId Id="263" Count="0" />
+      <LineId Id="271" Count="1" />
+      <LineId Id="297" Count="1" />
+      <LineId Id="275" Count="1" />
+      <LineId Id="300" Count="2" />
+      <LineId Id="299" Count="0" />
+      <LineId Id="279" Count="1" />
+      <LineId Id="303" Count="0" />
+      <LineId Id="282" Count="3" />
+      <LineId Id="288" Count="4" />
+      <LineId Id="365" Count="0" />
+      <LineId Id="600" Count="10" />
+      <LineId Id="598" Count="0" />
+      <LineId Id="367" Count="0" />
+      <LineId Id="507" Count="2" />
+      <LineId Id="512" Count="1" />
+      <LineId Id="510" Count="0" />
+      <LineId Id="514" Count="0" />
+      <LineId Id="516" Count="2" />
+      <LineId Id="515" Count="0" />
+      <LineId Id="521" Count="1" />
+      <LineId Id="524" Count="0" />
+      <LineId Id="526" Count="0" />
+      <LineId Id="528" Count="1" />
+      <LineId Id="527" Count="0" />
+      <LineId Id="525" Count="0" />
+      <LineId Id="520" Count="0" />
+      <LineId Id="511" Count="0" />
+      <LineId Id="505" Count="0" />
+      <LineId Id="530" Count="0" />
+      <LineId Id="537" Count="0" />
+      <LineId Id="544" Count="3" />
+      <LineId Id="562" Count="0" />
+      <LineId Id="553" Count="0" />
+      <LineId Id="560" Count="1" />
+      <LineId Id="534" Count="0" />
+      <LineId Id="532" Count="0" />
+      <LineId Id="229" Count="0" />
+      <LineId Id="231" Count="1" />
+      <LineId Id="234" Count="0" />
+      <LineId Id="236" Count="0" />
+      <LineId Id="4" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_LinearActuatorHoming.Position.Get">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_LinearActuatorHoming.Reset">
+      <LineId Id="8" Count="0" />
+      <LineId Id="7" Count="0" />
+      <LineId Id="4" Count="0" />
+      <LineId Id="41" Count="0" />
+      <LineId Id="18" Count="0" />
+      <LineId Id="15" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_LinearActuatorHoming.Setup">
+      <LineId Id="5" Count="0" />
+      <LineId Id="16" Count="0" />
+      <LineId Id="23" Count="0" />
+      <LineId Id="22" Count="0" />
+      <LineId Id="33" Count="0" />
+      <LineId Id="31" Count="0" />
+      <LineId Id="13" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_LinearActuatorHoming.TimeCompleted.Get">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

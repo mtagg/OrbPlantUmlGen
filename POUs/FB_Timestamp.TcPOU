@@ -1,0 +1,122 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FB_Timestamp" Id="{74a97f7e-fd21-4d80-99d4-b27d77cab2da}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_Timestamp
+VAR
+	//################# generating current timestamps ###################
+	fbGetTimeZoneInformation: FB_GetTimeZoneInformation;
+	GETSYSTEMTIME1: GETSYSTEMTIME;
+	stFileTime: T_FileTime;	
+	stTimeZoneInfo: ST_TimeZoneInformation;
+	fbFileTimeToTzSpecificLocalTime: FB_FileTimeToTzSpecificLocalTime;
+	fbCreateDateTimeString: FB_FormatString;
+	
+	tTime: TIMESTRUCT;
+	sDateString: T_MaxString;
+	sTimeString : T_MaxString;
+	dtTimestamp: DATE_AND_TIME;	
+	//###################################################################
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[]]></ST>
+    </Implementation>
+    <Property Name="DateString" Id="{27b37016-da7d-406b-ba8c-9be96b27bb17}">
+      <Declaration><![CDATA[PROPERTY DateString : T_MaxString]]></Declaration>
+      <Get Name="Get" Id="{32fcd0b4-a186-4d30-80f0-8a37e4fde213}">
+        <Declaration><![CDATA[]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[DateString := sDateString;]]></ST>
+        </Implementation>
+      </Get>
+    </Property>
+    <Property Name="DateTime" Id="{a4ae456e-093a-4763-a326-0cf93f2dbbd5}">
+      <Declaration><![CDATA[PROPERTY DateTime : DATE_AND_TIME]]></Declaration>
+      <Get Name="Get" Id="{25d661ac-e24f-4854-a451-d90a67793e6c}">
+        <Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[DateTime := dtTimestamp;]]></ST>
+        </Implementation>
+      </Get>
+    </Property>
+    <Property Name="TimeString" Id="{1d6868bd-1f87-4995-8d72-13ee035d5d18}">
+      <Declaration><![CDATA[PROPERTY TimeString : T_MaxString]]></Declaration>
+      <Get Name="Get" Id="{16b19ec4-4cb4-4b51-95cf-49afb5f331b4}">
+        <Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[TimeString := sTimeString;]]></ST>
+        </Implementation>
+      </Get>
+    </Property>
+    <Method Name="UpdateTimestamp" Id="{9995c6fe-6a08-4834-a87d-0e9aec427ba4}">
+      <Declaration><![CDATA[METHOD UpdateTimestamp : BOOL]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[fbGetTimeZoneInformation(
+	sNetID:= '', 
+	bExecute:= stTimeZoneInfo.daylightName = '', 
+	tTimeout:= T#5S,
+	tzInfo=> stTimeZoneInfo);
+
+GETSYSTEMTIME1(timeLoDW=> stFileTime.dwLowDateTime, timeHiDW=> stFileTime.dwHighDateTime);
+
+fbFileTimeToTzSpecificLocalTime(in:=stFileTime, tzInfo:= stTimeZoneInfo);
+
+tTime:= FILETIME_TO_SYSTEMTIME(fbFileTimeToTzSpecificLocalTime.out);
+
+dtTimestamp := SYSTEMTIME_TO_DT(tTime);
+
+fbCreateDateTimeString(
+	sFormat:= '%.4d_%.2d_%.2d_%.2d_%.2d_%.2d', 
+	arg1:= F_WORD(tTime.wYear), 
+	arg2:= F_WORD(tTime.wMonth), 
+	arg3:= F_WORD(tTime.wDay), 
+	arg4:= F_WORD(tTime.wHour), 
+	arg5:= F_WORD(tTime.wMinute), 
+	arg6:= F_WORD(tTime.wSecond), 	 
+sOut=> sDateString);
+
+
+
+fbCreateDateTimeString(
+	sFormat:= '%.2d:%.2d:%.2d.%.3d', 
+	arg1:= F_WORD(tTime.wHour), 
+	arg2:= F_WORD(tTime.wMinute), 
+	arg3:= F_WORD(tTime.wSecond), 
+	arg4:= F_WORD(tTime.wMilliseconds),	 
+sOut=> sTimeString);
+	
+UpdateTimestamp := TRUE;]]></ST>
+      </Implementation>
+    </Method>
+    <LineIds Name="FB_Timestamp">
+      <LineId Id="9" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_Timestamp.DateString.Get">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_Timestamp.DateTime.Get">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_Timestamp.TimeString.Get">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_Timestamp.UpdateTimestamp">
+      <LineId Id="6" Count="13" />
+      <LineId Id="52" Count="7" />
+      <LineId Id="33" Count="0" />
+      <LineId Id="60" Count="0" />
+      <LineId Id="38" Count="0" />
+      <LineId Id="69" Count="0" />
+      <LineId Id="39" Count="1" />
+      <LineId Id="44" Count="1" />
+      <LineId Id="47" Count="1" />
+      <LineId Id="37" Count="0" />
+      <LineId Id="29" Count="0" />
+      <LineId Id="5" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

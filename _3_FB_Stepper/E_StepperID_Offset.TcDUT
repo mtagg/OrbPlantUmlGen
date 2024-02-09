@@ -1,0 +1,17 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="E_StepperID_Offset" Id="{c60e8185-c4de-41ef-8943-cbbe9d88314b}">
+    <Declaration><![CDATA[{attribute 'qualified_only'}
+//{attribute 'strict'}
+TYPE E_StepperID_Offset :
+(	
+	StepperHoming := 1, // ie: R_Arm_StepperHoming would be 1241 in E_StateSourceID if R_ArmStepper was 1240
+	StepperJog := 2,
+	StepperMove := 3,
+	StepperHalt := 4,
+	StepperStop :=5,
+	StepperReset :=6
+);
+END_TYPE]]></Declaration>
+  </DUT>
+</TcPlcObject>

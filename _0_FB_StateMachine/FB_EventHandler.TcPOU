@@ -1,0 +1,448 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FB_EventHandler" Id="{ff0a1323-d03d-48f8-b1ca-30ec00608dfa}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_EventHandler
+VAR_INPUT
+	// PARENT / SETUP VARIABLES
+	eParentID :  E_StateSourceID;
+	sParentTrace : REFERENCE TO  T_MaxString;
+	aErrorLog : REFERENCE TO ARRAY[1..dErrorLogMaxLength] OF ST_Event; 
+	nErrorLogIndex : REFERENCE TO UINT;
+	sLastParentInnerState : REFERENCE TO T_MaxString;
+	sParentInnerState : REFERENCE TO T_MaxString;
+
+	
+	// CONTRROL FLAGS
+	bAppendEvents : BOOL;
+	bFrontEnd : BOOL;
+	bLogState : BOOL;
+	
+	
+	// LOCAL LOGGING INPUT VARS
+	eNapID : E_Event := E_Event.NONE;
+	nBeckhoffID : UDINT := 0;
+	sTrace : T_MaxString;
+	sErrorMessage : T_MaxString := '';
+	sMessage : T_MaxString := '';
+	
+END_VAR
+
+VAR
+	bEvent : BOOL;
+	stEvent : ARRAY[1..nArraySize] OF ST_Event; 
+	nLocalErrorCount : UINT := 0; 
+END_VAR
+
+
+VAR CONSTANT
+	nArraySize : UINT := 30;	// Local array size
+	dErrorLogMaxLength : UINT := SystemConfig.MAIN_EVENT_LOG_MAX_LENGTH; // Global array size
+END_VAR
+ ]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[
+
+// Add to local log queue if necessary
+IF (eNapID <> E_Event.NONE) OR (nBeckhoffID <> 0) THEN
+	UpdateParentTrace(); // Only update trace string when a new event comes in
+	SaveEvent();
+	AppendEvents();
+END_IF
+
+
+IF bAppendEvents THEN
+	AppendEvents();				// Update main DB event array
+END_IF
+
+
+ResetEventVariables(); 		// Update internal variables]]></ST>
+    </Implementation>
+    <Method Name="AppendEvents" Id="{4aec36a6-919e-4779-8edb-7ad0f86bd2c5}">
+      <Declaration><![CDATA[METHOD PRIVATE AppendEvents : BOOL
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[// Append events to the MAIN DB Array
+
+WHILE nLocalErrorCount > 0 DO
+	IF nErrorLogIndex < dErrorLogMaxLength THEN // TODO : Replace with global limit
+		nErrorLogIndex := nErrorLogIndex + 1;
+		aErrorLog[nErrorLogIndex] := GetEvent();
+	END_IF
+END_WHILE
+
+
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="GetEvent" Id="{7ddbc957-7b86-4369-9b01-11eee2c70257}">
+      <Declaration><![CDATA[METHOD PRIVATE GetEvent : ST_Event
+VAR
+	Event : ST_Event;
+	dCurrentErrorIndex : UINT := 1;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[
+//Initialize default state object:	
+Event.sEventTime := Datetime.GVL_TIME_STRING;
+Event.eStateSourceID := TO_STRING(THIS^.eParentID);
+Event.eNapEventID := TO_STRING(E_EventID.None);
+Event.eBeckhoffErrorID := 0;
+Event.eErrorSeverity := TO_STRING(E_ErrorSeverity.Event);
+Event.sMessage := '';
+
+
+IF nLocalErrorCount < 1 THEN
+	// No errors to report
+	GetEvent := Event;
+	bEvent := FALSE;
+	RETURN;
+	
+ELSE
+	// Pop first index, shift remaining errors to front:
+	Event := stEvent[1];
+	
+	// Check for severe error:
+//	IF Event.eErrorSeverity = TO_STRING(E_ErrorSeverity.SevereError) THEN
+//		bSevereError := TRUE;
+//	END_IF
+	
+	WHILE dCurrentErrorIndex < nLocalErrorCount DO
+		stEvent[dCurrentErrorIndex] := stEvent[dCurrentErrorIndex+1];
+		dCurrentErrorIndex := dCurrentErrorIndex + 1;
+	END_WHILE
+	
+	//Decrement error count to reflect the popped first index:
+	nLocalErrorCount := nLocalErrorCount - 1;
+	
+	IF nLocalErrorCount < 1 THEN
+		// We popped the last error:
+		bEvent := FALSE;
+	END_IF
+	
+END_IF
+
+// Successfully popped error
+GetEvent := Event;]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="ResetEventVariables" Id="{b7212333-a690-4df6-b08b-d5c36341e0fc}">
+      <Declaration><![CDATA[// Resets input variables that need to be reset each call to the FB_EventHandler
+METHOD ResetEventVariables : BOOL
+
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[THIS^.eNapID := E_Event.NONE;
+THIS^.nBeckhoffID := 0;
+
+//THIS^.eTraceError := E_Event.NONE;
+THIS^.sTrace := '';
+THIS^.sMessage := '';
+
+// Reset Flags
+THIS^.bAppendEvents := FALSE;
+THIS^.bFrontEnd := FALSE;
+THIS^.bLogState := FALSE;
+
+
+
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="SaveEvent" Id="{bc2e4207-7f12-49fc-8338-dbb5792f5542}">
+      <Declaration><![CDATA[METHOD PRIVATE SaveEvent : BOOL
+VAR
+	Event : ST_Event;
+//	SeverityModulus : INT;
+	dCurrentErrorIndex : UINT := 1;
+	sStateTrans : T_MaxString;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[// Build Temporary Event object:
+Event.sEventTime := Datetime.GVL_TIME_STRING;
+Event.eNapEventID := TO_STRING(THIS^.eNapID);
+Event.eBeckhoffErrorID := THIS^.nBeckhoffID;
+Event.bPassToFrontEnd := THIS^.bFrontEnd;
+Event.eStateSourceID := TO_STRING(THIS^.eParentID);
+
+IF THIS^.nBeckhoffID = 0 THEN
+	// NAP Event/Error
+	
+//	SeverityModulus := (THIS^.eNapID MOD 500); // See E_ErrorID Enumeration for explanation
+	
+	IF eNapID < 1000 THEN
+		Event.eErrorSeverity := TO_STRING(E_ErrorSeverity.Event);
+	ELSIF eNapID < 2000 THEN
+		Event.eErrorSeverity := TO_STRING(E_ErrorSeverity.Warning);
+	ELSIF eNapID < 3000 THEN
+		Event.eErrorSeverity := TO_STRING(E_ErrorSeverity.Error);
+	ELSIF eNapID < 4000 THEN
+		Event.eErrorSeverity := TO_STRING(E_ErrorSeverity.Info);
+	ELSE
+		Event.eErrorSeverity := TO_STRING(E_ErrorSeverity.Debug);	
+	END_IF
+	
+	
+ELSIF THIS^.eNapID = E_Event.NONE THEN
+	// Beckhoff Error
+	Event.eErrorSeverity := TO_STRING(E_ErrorSeverity.BeckhoffError);
+ELSE
+	// No error, should not get here.
+	RETURN;
+END_IF
+
+
+// Build Event String
+sStateTrans := CONCAT4('[',sLastParentInnerState,CONCAT('->',sParentInnerState),'] ');
+IF sTrace = '' THEN
+	// Only add message to event message
+	Event.sMessage := CONCAT(sStateTrans,THIS^.sMessage);
+ELSE
+	// Add message AND trace to event message
+	IF sMessage = '' THEN
+		Event.sMessage := CONCAT(sStateTrans,THIS^.sParentTrace);
+	ELSE
+		Event.sMessage := CONCAT(sStateTrans,CONCAT(CONCAT(THIS^.sMessage,' >> '),THIS^.sParentTrace));
+	END_IF
+
+END_IF
+
+IF nLocalErrorCount < nArraySize THEN
+	// Array not filled, add new error to the back of queue:
+	nLocalErrorCount := nLocalErrorCount + 1;
+	stEvent[nLocalErrorCount] := Event;
+	
+ELSE
+	// No increase in count if maximum size has already been reached
+	WHILE dCurrentErrorIndex < nArraySize DO
+		// Move all other indicies back 1 position, until we reach the front of queue:
+		stEvent[dCurrentErrorIndex] := stEvent[dCurrentErrorIndex+1];	
+		dCurrentErrorIndex := dCurrentErrorIndex + 1;
+	END_WHILE
+		// Save new error to the back:
+		stEvent[nArraySize] := Event;
+END_IF
+
+// Redundant out of bounds error avoidance
+IF nLocalErrorCount > nArraySize THEN
+	nLocalErrorCount := nArraySize;
+END_IF
+
+THIS^.bEvent := TRUE;
+//SaveEvent := TRUE;	
+]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="SaveState" Id="{caefe455-73d8-47c5-b1cc-1d8c3dd05687}">
+      <Declaration><![CDATA[METHOD PUBLIC SaveState : BOOL
+
+
+VAR_INPUT
+	sLastState : T_MaxString := '';
+	sNewState : T_MaxString := '';
+	bOuter : BOOL;
+END_VAR
+VAR 
+	Event : ST_Event;
+	dCurrentErrorIndex : UINT := 1;
+END_VAR
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[Event.sEventTime := Datetime.GVL_TIME_STRING;
+Event.eBeckhoffErrorID := 0;
+Event.bPassToFrontEnd := FALSE;
+Event.eStateSourceID := TO_STRING(THIS^.eParentID);
+Event.eErrorSeverity := TO_STRING(E_ErrorSeverity.Event);
+IF bOuter THEN
+	Event.sMessage := CONCAT(sLastState,CONCAT(' to ',sNewState));
+	Event.eNapEventID := TO_STRING(E_Event.OUTER_STATE_CHANGE);
+ELSE
+	Event.sMessage := CONCAT(sLastState,CONCAT(' to ',sNewState));
+	Event.eNapEventID := TO_STRING(E_Event.INNER_STATE_CHANGE);
+END_IF
+
+
+IF nLocalErrorCount < nArraySize THEN
+	// Array not filled, add new error to the back of queue:
+	nLocalErrorCount := nLocalErrorCount + 1;
+	stEvent[nLocalErrorCount] := Event;
+	
+ELSE
+	// No increase in count if maximum size has already been reached
+	WHILE dCurrentErrorIndex < nArraySize DO
+		// Move all other indicies back 1 position, until we reach the front of queue:
+		stEvent[dCurrentErrorIndex] := stEvent[dCurrentErrorIndex+1];	
+		dCurrentErrorIndex := dCurrentErrorIndex + 1;
+	END_WHILE
+		// Save new error to the back:
+		stEvent[nArraySize] := Event;
+END_IF
+
+THIS^.bEvent := TRUE;
+AppendEvents();]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="UpdateParentTrace" Id="{bc830100-a566-4722-be2d-206500f3d50e}">
+      <Declaration><![CDATA[// Sets the sParentTrace string appropriately, if inheiriting sTrace, it will append, otherwise it will start its own. 
+// When a state machine issues an event with no sTrace specified, the sParentTrace is ignored while saving event.
+METHOD UpdateParentTrace : BOOL
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[IF THIS^.sTrace = '' THEN
+	// Build event trace
+	IF THIS^.nBeckhoffID = 0 THEN
+		// Append NAP Event to event trace
+		THIS^.sParentTrace := CONCAT(CONCAT(TO_STRING(eParentID),'>>'),TO_STRING(THIS^.eNapID));
+	ELSE
+		// Append Beckhoff ID to event trace
+		THIS^.sParentTrace := CONCAT(CONCAT(TO_STRING(eParentID),'>>'),CONCAT('Beckhoff ID: ',UDINT_TO_STRING(THIS^.nBeckhoffID)));
+	END_IF
+ELSE
+	// Append child's event trace
+	THIS^.sParentTrace := CONCAT(CONCAT(TO_STRING(THIS^.eParentID),'>>'),THIS^.sTrace);
+END_IF
+
+]]></ST>
+      </Implementation>
+    </Method>
+    <LineIds Name="FB_EventHandler">
+      <LineId Id="89" Count="1" />
+      <LineId Id="82" Count="0" />
+      <LineId Id="95" Count="0" />
+      <LineId Id="97" Count="0" />
+      <LineId Id="99" Count="0" />
+      <LineId Id="193" Count="0" />
+      <LineId Id="98" Count="0" />
+      <LineId Id="192" Count="0" />
+      <LineId Id="188" Count="2" />
+      <LineId Id="149" Count="0" />
+      <LineId Id="191" Count="0" />
+      <LineId Id="73" Count="0" />
+      <LineId Id="60" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_EventHandler.AppendEvents">
+      <LineId Id="12" Count="0" />
+      <LineId Id="14" Count="0" />
+      <LineId Id="19" Count="0" />
+      <LineId Id="43" Count="0" />
+      <LineId Id="49" Count="0" />
+      <LineId Id="47" Count="1" />
+      <LineId Id="44" Count="0" />
+      <LineId Id="41" Count="1" />
+      <LineId Id="13" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_EventHandler.GetEvent">
+      <LineId Id="275" Count="0" />
+      <LineId Id="216" Count="0" />
+      <LineId Id="218" Count="0" />
+      <LineId Id="261" Count="1" />
+      <LineId Id="221" Count="0" />
+      <LineId Id="264" Count="0" />
+      <LineId Id="223" Count="5" />
+      <LineId Id="276" Count="2" />
+      <LineId Id="229" Count="15" />
+      <LineId Id="284" Count="0" />
+      <LineId Id="245" Count="7" />
+      <LineId Id="19" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_EventHandler.ResetEventVariables">
+      <LineId Id="5" Count="0" />
+      <LineId Id="11" Count="0" />
+      <LineId Id="25" Count="0" />
+      <LineId Id="9" Count="1" />
+      <LineId Id="13" Count="0" />
+      <LineId Id="24" Count="0" />
+      <LineId Id="23" Count="0" />
+      <LineId Id="12" Count="0" />
+      <LineId Id="20" Count="0" />
+      <LineId Id="29" Count="0" />
+      <LineId Id="21" Count="0" />
+      <LineId Id="15" Count="0" />
+      <LineId Id="6" Count="0" />
+      <LineId Id="8" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_EventHandler.SaveEvent">
+      <LineId Id="9" Count="0" />
+      <LineId Id="11" Count="0" />
+      <LineId Id="127" Count="0" />
+      <LineId Id="122" Count="0" />
+      <LineId Id="130" Count="0" />
+      <LineId Id="132" Count="0" />
+      <LineId Id="134" Count="0" />
+      <LineId Id="15" Count="0" />
+      <LineId Id="125" Count="0" />
+      <LineId Id="145" Count="0" />
+      <LineId Id="87" Count="0" />
+      <LineId Id="121" Count="0" />
+      <LineId Id="91" Count="0" />
+      <LineId Id="93" Count="1" />
+      <LineId Id="96" Count="1" />
+      <LineId Id="99" Count="2" />
+      <LineId Id="104" Count="1" />
+      <LineId Id="85" Count="0" />
+      <LineId Id="115" Count="0" />
+      <LineId Id="119" Count="0" />
+      <LineId Id="111" Count="1" />
+      <LineId Id="133" Count="0" />
+      <LineId Id="114" Count="0" />
+      <LineId Id="144" Count="0" />
+      <LineId Id="139" Count="0" />
+      <LineId Id="86" Count="0" />
+      <LineId Id="173" Count="0" />
+      <LineId Id="135" Count="0" />
+      <LineId Id="38" Count="0" />
+      <LineId Id="174" Count="0" />
+      <LineId Id="136" Count="0" />
+      <LineId Id="143" Count="0" />
+      <LineId Id="137" Count="0" />
+      <LineId Id="140" Count="0" />
+      <LineId Id="157" Count="0" />
+      <LineId Id="152" Count="0" />
+      <LineId Id="158" Count="0" />
+      <LineId Id="153" Count="0" />
+      <LineId Id="156" Count="0" />
+      <LineId Id="154" Count="0" />
+      <LineId Id="142" Count="0" />
+      <LineId Id="138" Count="0" />
+      <LineId Id="45" Count="9" />
+      <LineId Id="165" Count="1" />
+      <LineId Id="57" Count="3" />
+      <LineId Id="63" Count="4" />
+      <LineId Id="82" Count="2" />
+      <LineId Id="5" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_EventHandler.SaveState">
+      <LineId Id="7" Count="0" />
+      <LineId Id="9" Count="1" />
+      <LineId Id="5" Count="0" />
+      <LineId Id="15" Count="0" />
+      <LineId Id="49" Count="0" />
+      <LineId Id="53" Count="0" />
+      <LineId Id="80" Count="0" />
+      <LineId Id="52" Count="0" />
+      <LineId Id="54" Count="0" />
+      <LineId Id="81" Count="0" />
+      <LineId Id="51" Count="0" />
+      <LineId Id="18" Count="0" />
+      <LineId Id="20" Count="16" />
+      <LineId Id="16" Count="0" />
+      <LineId Id="67" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_EventHandler.UpdateParentTrace">
+      <LineId Id="6" Count="0" />
+      <LineId Id="19" Count="0" />
+      <LineId Id="12" Count="0" />
+      <LineId Id="16" Count="0" />
+      <LineId Id="7" Count="0" />
+      <LineId Id="13" Count="0" />
+      <LineId Id="17" Count="0" />
+      <LineId Id="14" Count="1" />
+      <LineId Id="9" Count="0" />
+      <LineId Id="18" Count="0" />
+      <LineId Id="10" Count="1" />
+      <LineId Id="8" Count="0" />
+      <LineId Id="5" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

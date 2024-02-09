@@ -1,0 +1,183 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <POU Name="FB_JointSetup" Id="{888c861b-deb3-49aa-a879-accf1d9a1954}" SpecialFunc="None">
+    <Declaration><![CDATA[FUNCTION_BLOCK FB_JointSetup EXTENDS FB_StateMachine IMPLEMENTS  I_StateMachine
+VAR_INPUT
+	bStart : BOOL;	
+	
+	stAxis : REFERENCE TO ST_JointAxis;
+END_VAR
+VAR_OUTPUT
+END_VAR
+VAR
+	eInnerState : E_JointSetupStates;
+	bCompleted : BOOL;
+	dtTimeCompleted: DATE_AND_TIME;
+	bForceSetup : REFERENCE TO BOOL;
+	stAbsEncoderAxisRef : REFERENCE TO AXIS_REF;
+	stIncEncoderAxisRef : REFERENCE TO AXIS_REF;
+	fbAbsEncoderHome : MC_Home;
+	fbIncEncoderHome : MC_Home;
+END_VAR
+]]></Declaration>
+    <Implementation>
+      <ST><![CDATA[OuterLopSM();]]></ST>
+    </Implementation>
+    <Folder Name="Properties" Id="{5b71f894-4830-45e3-a348-c9d8dfdeb40b}" />
+    <Method Name="Disable" Id="{97bb9696-0f2a-46f9-97ab-37b590fc03fc}">
+      <Declaration><![CDATA[METHOD Disable : BOOL
+VAR
+	bChildBusy  : BOOL := FALSE;
+END_VAR]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[fbAbsEncoderHome(Axis:=stAbsEncoderAxisRef,Execute:=TRUE,HomingMode:=MC_HomingMode.MC_ResetCalibration);
+fbIncEncoderHome(Axis:=stIncEncoderAxisRef,Execute:=TRUE,HomingMode:=MC_HomingMode.MC_ResetCalibration);
+
+IF fbAbsEncoderHome.Busy THEN
+	bChildBusy := TRUE;
+ELSIF fbAbsEncoderHome.Error THEN	
+	{warning 'Is below call acceptable here?'}
+	fbEventHandler(nBeckhoffID:=fbAbsEncoderHome.ErrorID);
+	fbAbsEncoderHome(Axis:=stAbsEncoderAxisRef,Execute:=FALSE);
+	bChildBusy := TRUE;
+END_IF
+
+IF fbIncEncoderHome.Busy THEN
+	bChildBusy := TRUE;
+ELSIF fbIncEncoderHome.Error THEN	
+	{warning 'Is below call acceptable here?'}
+	fbEventHandler(nBeckhoffID:=fbIncEncoderHome.ErrorID);
+	fbIncEncoderHome(Axis:=stIncEncoderAxisRef,Execute:=FALSE);
+	bChildBusy := TRUE;
+END_IF
+
+IF bChildBusy THEN
+	Disable := FALSE;
+ELSE
+	Disable := TRUE;
+END_IF]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="InnerLoopSM" Id="{970bdd2b-e89f-46f7-a0af-71a227ac147c}">
+      <Declaration><![CDATA[METHOD InnerLoopSM : BOOL
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[// update all children FBs
+fbAbsEncoderHome(Axis:=stAbsEncoderAxisRef);
+fbIncEncoderHome(Axis:=stIncEncoderAxisRef);
+
+CASE CyclicInnerCase(TO_STRING(eInnerState)) OF
+	E_JointSetupStates.Idle:
+		IF bStart THEN
+			bStart := FALSE;
+			IF SetupNeeded THEN
+				ChangeInnerState(E_JointSetupStates.SetAbsEncoderPositiveDir);
+			ELSE
+				// Stay in Idle as setup is not needed
+			END_IF
+		END_IF
+		
+	E_JointSetupStates.SetAbsEncoderPositiveDir:
+
+
+		
+END_CASE]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Reset" Id="{871f704e-650a-46ea-9b4c-7ea6dbb0dbd7}">
+      <Declaration><![CDATA[METHOD Reset : BOOL
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[// reset variables specific to this FB 
+bCompleted := FALSE;
+dtTimeCompleted := DATE_AND_TIME#1970-1-1-0:0:0;
+
+// Reactivate children FBs
+//none]]></ST>
+      </Implementation>
+    </Method>
+    <Method Name="Setup" Id="{70b8979c-e330-4991-a613-d0ceba69cc54}">
+      <Declaration><![CDATA[METHOD Setup : BOOL
+]]></Declaration>
+      <Implementation>
+        <ST><![CDATA[eStateMachineSourceID := eStateSourceID;
+stAbsEncoderAxisRef REF= stAxis.stAbsEncoderAxisRef;
+stIncEncoderAxisRef REF= stAxis.stIncEncoderAxisRef;
+bForceSetup REF= stAxis.bForceSetup;
+SetInnerEnumeration(nStateEnum:=THIS^.eInnerState);]]></ST>
+      </Implementation>
+    </Method>
+    <Property Name="SetupNeeded" Id="{ffb6cc3d-f202-435a-ba65-d363fe30b912}" FolderPath="Properties\">
+      <Declaration><![CDATA[PROPERTY SetupNeeded : BOOL]]></Declaration>
+      <Get Name="Get" Id="{d7417a21-ce13-46cc-9525-3becc3b92b13}">
+        <Declaration><![CDATA[]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[// TODO: Check if dtTimeCompleted is too old. If so set SetupNeeded := TRUE
+IF bForceSetup THEN
+	SetupNeeded := TRUE;
+ELSE
+	SetupNeeded := NOT bCompleted;
+END_IF
+]]></ST>
+        </Implementation>
+      </Get>
+    </Property>
+    <Property Name="TimeCompleted" Id="{5965413c-fef8-41b3-ae72-1bc57903c58a}" FolderPath="Properties\">
+      <Declaration><![CDATA[PROPERTY TimeCompleted : DATE_AND_TIME]]></Declaration>
+      <Get Name="Get" Id="{0aa84971-4991-4efe-95bd-4ffd6195aa01}">
+        <Declaration><![CDATA[VAR
+END_VAR
+]]></Declaration>
+        <Implementation>
+          <ST><![CDATA[TimeCompleted := dtTimeCompleted;]]></ST>
+        </Implementation>
+      </Get>
+    </Property>
+    <LineIds Name="FB_JointSetup">
+      <LineId Id="9" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_JointSetup.Disable">
+      <LineId Id="20" Count="0" />
+      <LineId Id="69" Count="0" />
+      <LineId Id="56" Count="0" />
+      <LineId Id="72" Count="0" />
+      <LineId Id="96" Count="1" />
+      <LineId Id="91" Count="1" />
+      <LineId Id="94" Count="1" />
+      <LineId Id="70" Count="0" />
+      <LineId Id="99" Count="7" />
+      <LineId Id="98" Count="0" />
+      <LineId Id="108" Count="4" />
+      <LineId Id="107" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_JointSetup.InnerLoopSM">
+      <LineId Id="5" Count="0" />
+      <LineId Id="27" Count="0" />
+      <LineId Id="22" Count="0" />
+      <LineId Id="9" Count="10" />
+      <LineId Id="28" Count="0" />
+      <LineId Id="30" Count="0" />
+      <LineId Id="29" Count="0" />
+      <LineId Id="20" Count="0" />
+      <LineId Id="4" Count="0" />
+      <LineId Id="21" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_JointSetup.Reset">
+      <LineId Id="5" Count="4" />
+      <LineId Id="4" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_JointSetup.Setup">
+      <LineId Id="4" Count="0" />
+      <LineId Id="7" Count="1" />
+      <LineId Id="6" Count="0" />
+      <LineId Id="5" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_JointSetup.SetupNeeded.Get">
+      <LineId Id="5" Count="5" />
+      <LineId Id="2" Count="0" />
+    </LineIds>
+    <LineIds Name="FB_JointSetup.TimeCompleted.Get">
+      <LineId Id="2" Count="0" />
+    </LineIds>
+  </POU>
+</TcPlcObject>

@@ -1,0 +1,25 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <Itf Name="I_StateMachine" Id="{469cf387-cbed-4f2d-a0d7-5c52e983c171}">
+    <Declaration><![CDATA[INTERFACE I_StateMachine
+]]></Declaration>
+    <Method Name="InnerLoopSM" Id="{8128a504-3343-4187-bad3-fc3e8ce0864e}">
+      <Declaration><![CDATA[METHOD InnerLoopSM : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+    </Method>
+    <Method Name="Reset" Id="{9f019809-cef4-4f8b-a231-5d682662cd0e}">
+      <Declaration><![CDATA[METHOD Reset : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+    </Method>
+    <Method Name="Setup" Id="{adc45dd6-4d13-4542-9d3e-388be31631ca}">
+      <Declaration><![CDATA[METHOD Setup : BOOL
+VAR_INPUT
+END_VAR
+]]></Declaration>
+    </Method>
+  </Itf>
+</TcPlcObject>

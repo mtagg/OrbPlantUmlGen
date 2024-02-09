@@ -119,8 +119,27 @@ def makeLastStateToFirstStateString(lastBaseState, firstState, ifStates, elseSta
                 return makeBranchString(lastBaseState.pop(), firstState.pop(), setNotConditionStatement(ifConditions.pop()))
         else:
             return makeBranchString(lastBaseState.pop(), firstState.pop())          
-
+ 
+    """subStateNode
+        
+    Returns:
+        _type_: _description_
+    """
+class subStateNode ():
     
+    def __init__(self) -> None:
+        self.condition = None
+        self.isElse = False
+        self.level = None
+        self.pastNode = None
+        self.futureNode = None
+        self.baseNode = None
+        self.id = ''
+        self.Name = '""'
+        self.sequenceNumber = None
+
+        
+ 
                
 class PlantUmlGenerator():
     
@@ -144,6 +163,7 @@ class PlantUmlGenerator():
         ifCounter = 0       # TODO: Move this to be reset for each case once bugs are fixed
         elsifCounter = 0    # TODO: Move this to be reset for each case once bugs are fixed
         callCounter = 0
+        subNodes = []
         
         
         if not statesList:
@@ -189,14 +209,13 @@ class PlantUmlGenerator():
                             print(line)
                             # print(Match.groups(0))
                             # caseState = Match.groups(2)
-                            # print(caseState)
                             # BUG: Assume only one case variable and case per FB
                             # caseStates.append(Match.groups(2)) 
                             caseStates.append(state)
                             caseStatesHash.update({ state : state }) # Parent state requires no modified value in UML diagram
                             umlString += getTabs(caseStates,subStates,ifStates,1) + f"state {caseStates[-1]} {GLOBALS_['CaseColourCode']} " + "{\n"        
                             print(f"[Line {i}]\tStarted CASE {caseStates[-1]} OF...")
-                         
+
                     # Skip the nested case(s) - (redundant)
                     elif len(caseStates) > 1:
                         if "END_CASE" in line:
@@ -215,10 +234,10 @@ class PlantUmlGenerator():
                             subStates.pop()
                             umlString += getTabs(caseStates,subStates,ifStates,1) + "}\n" 
                             # BUG: Loopback to first state code:
-                            if len(caseStates) - len(firstState) == 0: 
-                                # lastBaseState length must be <= caseState length (one on stack per case/ nested case)
-                                branchString += makeLocalToBaseBranchString(statesToNextBaseState, firstState[-1]) 
-                                # branchString += makeLastStateToFirstStateString(lastBaseState,firstState,ifStates,elseStack,ifConditions)      
+                            # if len(caseStates) - len(firstState) == 0: 
+                            #     # lastBaseState length must be <= caseState length (one on stack per case/ nested case)
+                            #     branchString += makeLocalToBaseBranchString(statesToNextBaseState, firstState[-1]) 
+                            #     # branchString += makeLastStateToFirstStateString(lastBaseState,firstState,ifStates,elseStack,ifConditions)      
                                 
                             caseStatesHash.pop(caseStates.pop())
                             umlString += stateBranchString
@@ -248,10 +267,10 @@ class PlantUmlGenerator():
                                 eMsg = f"[Line {i}] ERROR: Found new subState with len(subState)={len(subStates)}.\nRETURNING EARLY...\n"
                                 return printUmlException(umlString, eMsg)
                             # BUG: Loopback to first state code:
-                            if len(caseStates) - len(firstState) == 0: 
-                                # lastBaseState length must be <= caseState length (one on stack per case/ nested case) 
-                                branchString += makeLocalToBaseBranchString(statesToNextBaseState, firstState[-1]) 
-                                # branchString += makeLastStateToFirstStateString(lastBaseState,firstState,ifStates,elseStack,ifConditions)
+                            # if len(caseStates) - len(firstState) == 0: 
+                            #     # lastBaseState length must be <= caseState length (one on stack per case/ nested case) 
+                            #     branchString += makeLocalToBaseBranchString(statesToNextBaseState, firstState[-1]) 
+                            #     # branchString += makeLastStateToFirstStateString(lastBaseState,firstState,ifStates,elseStack,ifConditions)
                             
                             umlString += getTabs(caseStates,subStates,ifStates,1) + f"state {newState}" + "{\n"                            
                             subStates.append(newState) # Add substate to substate stack    
@@ -322,7 +341,7 @@ class PlantUmlGenerator():
                                             lastBaseState.append(newIfState)
                                             
                                         # Append branches from previous nested states to new base state
-                                        branchString += makeLocalToBaseBranchString(statesToNextBaseState, newIfState) 
+                                        # branchString += makeLocalToBaseBranchString(statesToNextBaseState, newIfState) 
                                     
                                     elif len(ifStates) > 0:
                                         branchString += f"\t{ifStates[-1]} ---> {newIfState} : {(ifConditions[-1])}\n"
@@ -408,7 +427,7 @@ class PlantUmlGenerator():
                             pass
                         elif len(caseStates) > 0:
                             callCounter += 1
-                            newCall = f"CALL_{callCounter}"
+                            newCall = f"{subStates[-1]}_CALL_{callCounter}"
                             callString = f"{Match.group(1)}"
                             umlString += getTabs(caseStates,subStates,ifStates,1) + f"state \"{callString}\" as {newCall}\n"
                             
@@ -427,8 +446,8 @@ class PlantUmlGenerator():
                                 lastLocalIfState[-1] = newCall
                             else:
                                 # Append branches from previous nested states to new base state
-                                if len(statesToNextBaseState) > 0:
-                                    branchString += makeLocalToBaseBranchString(statesToNextBaseState, newCall)  
+                                # if len(statesToNextBaseState) > 0:
+                                #     branchString += makeLocalToBaseBranchString(statesToNextBaseState, newCall)  
                                 if len(caseStates) - len(firstState) == 0:
                                     # Branching from last BASE state
                                     branchString += f"\t{lastBaseState[-1]} --> {newCall}\n"

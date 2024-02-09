@@ -1,0 +1,21 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TcPlcObject Version="1.1.0.1" ProductVersion="3.1.4024.12">
+  <DUT Name="ST_JointAxis" Id="{aadcc87d-cf4a-45d7-8196-3b236aafd473}">
+    <Declaration><![CDATA[TYPE ST_JointAxis :
+STRUCT
+	stAbsEncoderAxisRef	: AXIS_REF;
+	stIncEncoderAxisRef	: AXIS_REF;
+	bForceSetup : BOOL;
+	
+	//Bools to determine the type of joint
+	bDualEncoderJoint : BOOL;
+	bVariableOffsetJoint : BOOL;
+	bSingleIncrementalJoint : BOOL;
+	bSingleAbsoluteJoint : BOOL;
+
+	
+END_STRUCT
+END_TYPE
+]]></Declaration>
+  </DUT>
+</TcPlcObject>
