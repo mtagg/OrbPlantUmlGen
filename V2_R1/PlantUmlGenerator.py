@@ -8,7 +8,7 @@ def printUmlException(umlString, eMsg):
         print(eMsg)
         return umlString + "' " + eMsg + "\n"
 
-# def stateInLine(states, line):
+"""# def stateInLine(states, line):
 #     for state in states:
 #         if state in line:
 #             return state
@@ -20,7 +20,7 @@ def printUmlException(umlString, eMsg):
 #     while tabTotal > 0:
 #         tabs += "\t"
 #         tabTotal-=1
-#     return tabs    
+#     return tabs    """
   
 def getTabs(level, offset):
     tabTotal = level + offset
@@ -30,11 +30,11 @@ def getTabs(level, offset):
         tabTotal-=1
     return tabs    
     
-# def checkArrayFor(array, value):
+"""# def checkArrayFor(array, value):
 #     for val in array:
 #         if val == value:
 #             return True
-#     return False      
+#     return False     """ 
 
 def setNotConditionStatement(condition):
     if condition:
@@ -49,8 +49,6 @@ def getIfCondition(lines, lineIndex):
     i = lineIndex
     ifBuffer = ""
     maxLinesToSearch = 20 # TODO: update this as necessary
-    # IF_THEN_REGEX = "^\s*IF\s*([\(\)\[\]\s\w\.\*\+\-><=:,^&%#@!]+)\s*THEN\s*$"
-    # IF_THEN_REGEX = "^\s*IF\s*([\(\)\[\]\s\w\.\*\+\-><=:,^&!]+)\s*THEN\s*$"
     IF_THEN_REGEX = "^\s*IF\s*(.+)\s*THEN\s*$" # This should capture ANYTHING between "IF" & "THEN"
     while (i-lineIndex) < maxLinesToSearch:     
         if "END_IF" in lines[i] or "ELSE" in lines[i] or "ELSIF" in lines[i]:
@@ -68,7 +66,6 @@ def getIfCondition(lines, lineIndex):
     return ""
 
 def getElsifCondition(lines, lineIndex):
-    # TODO: Return line index variable so the caller can skip the lines we used up finding our condition
     i = lineIndex
     ifBuffer = ""
     maxLinesToSearch = 20 # TODO: update this as necessary
@@ -91,63 +88,64 @@ def getElsifCondition(lines, lineIndex):
                     
     print(f"ERROR: Found ELSIF without a THEN after {maxLinesToSearch} lines, returning empty string\n")
     return ""
-
-# def makeLocalToBaseBranchString(localStates, newState):
-#     buffer = ""
-#     for state in localStates:
-#         if state != None:
-#             buffer += f"\t{state} --> {newState}\n"
-#     localStates.clear()
-#     # print(f"BUFFER : {buffer}")      
-#     return buffer   
+"""
+def makeLocalToBaseBranchString(localStates, newState):
+    buffer = ""
+    for state in localStates:
+        if state != None:
+            buffer += f"\t{state} --> {newState}\n"
+    localStates.clear()
+    # print(f"BUFFER : {buffer}")      
+    return buffer   """
     
-
 def makeBranchStringConditional(srcState, destState, condition):
   return f"\t{srcState} --> {destState} : {condition}\n"
 
 def makeBranchString(srcState, destState):
   return f"\t{srcState} --> {destState}\n"    
                                                           
-# def makeLastStateToFirstStateString(lastBaseState, firstState, ifStates, elseStack, ifConditions):
-    # if lastBaseState[-1] == firstState[-1]:
-    #     # Loop first state to itself
-    #     lastBaseState.pop()
-    #     return makeBranchString(firstState[-1], firstState.pop())
-    # else:
-    #     # show that the last state of the case will return to the start of the substate
-    #     if len(ifStates) > 0 and (ifStates[-1] == lastBaseState[-1]):
-    #         if elseStack[-1] == False:
-    #             return makeBranchString(lastBaseState.pop(), firstState.pop(), ifConditions.pop())
-    #         else:
-    #             return makeBranchString(lastBaseState.pop(), firstState.pop(), setNotConditionStatement(ifConditions.pop()))
-    #     else:
-    #         return makeBranchString(lastBaseState.pop(), firstState.pop())          
+"""def makeLastStateToFirstStateString(lastBaseState, firstState, ifStates, elseStack, ifConditions):
+    if lastBaseState[-1] == firstState[-1]:
+        # Loop first state to itself
+        lastBaseState.pop()
+        return makeBranchString(firstState[-1], firstState.pop())
+    else:
+        # show that the last state of the case will return to the start of the substate
+        if len(ifStates) > 0 and (ifStates[-1] == lastBaseState[-1]):
+            if elseStack[-1] == False:
+                return makeBranchString(lastBaseState.pop(), firstState.pop(), ifConditions.pop())
+            else:
+                return makeBranchString(lastBaseState.pop(), firstState.pop(), setNotConditionStatement(ifConditions.pop()))
+        else:
+            return makeBranchString(lastBaseState.pop(), firstState.pop())   """       
  
-"""subStateNode
+
+class StateNode ():
+    """subStateNode
+    
     lastNode : StateNode object for the last visited node prior to the current, input should be None for first node
     condition : String containing a IF/ElSIF/ELSE conditional
-class vars:
-    name        : This is the displayed name, should have '""' double quotes around the name
-    lastNode    : Either None for the first node, or the previously visited node
-    futureNode  : The next node we visit, initalized as None. Updated when the next node is visited
-    parentNode  : A previous node that we branch from, not necessarily in sequence, but in logical order
-    seqNum      : integer to track which node we have visited in the provided code
-    id          : unique String id as Node_{id}
-    isElse      : indicates if the node is an Else statement
-    isElsif     : indicates if the node is an Elsif statement
-    isIf        : indicates if the node is an If statement
-    
-"""
-class StateNode ():
-    
+    input vars:
+
+    class vars:
+        name        : This is the displayed name, should have '""' double quotes around the name
+        lastNode    : Either None for the first node, or the previously visited node
+        futureNode  : The next node we visit, initalized as None. Updated when the next node is visited
+        parentNode  : A previous node that we branch from, not necessarily in sequence, but in logical order
+        seqNum      : integer to track which node we have visited in the provided code
+        id          : unique String id as Node_{id}
+        isElse      : indicates if the node is an Else statement
+        isElsif     : indicates if the node is an Elsif statement
+        isIf        : indicates if the node is an If statement
+    """
     # Constructor
     def __init__(self, lastNode, parentState, name=None, condition=None, isElse=False, isElsif=False, isIf=False) -> bool:
         self.name = name             
-        self.futureNode = None
+        self.nextNode = None
         self.parentNode = None
         # print(f"Creating new node: {self.name}")
         if lastNode != None:
-          lastNode.setFutureNode(self)
+          lastNode.setNextNode(self)
           self.seqNum = lastNode.getSeqNum() + 1
           
           if isElse:
@@ -189,14 +187,14 @@ class StateNode ():
             
           else: # Not a conditional
             self.parentNode = lastNode
-            self.pastNode = lastNode
+            # self.pastNode = lastNode
             self.nodeLevel = self.parentNode.getLevel()
             self.condition = None
 
         else: # First node
           print("First Node: ")
           self.nodeLevel = 0
-          self.pastNode = None
+        #   self.lastNode = None
           self.condition = condition
           self.seqNum = 0
           self.isIF = isIf
@@ -251,8 +249,8 @@ class StateNode ():
       else:
         return ""
       
-    def setFutureNode(self, node) -> None:
-      self.futureNode = node
+    def setNextNode(self, node) -> None:
+      self.NextNode = node
       return
 
 class UMLGenerationState(Enum):
@@ -372,9 +370,49 @@ class PlantUmlGenerator():
                 eMsg = f"[Line {i}] ERROR: Failed to END_IF.\nReturning Early..."
                 return printUmlException(umlString, eMsg)      
       
+      
+      
+            # # search for sub-state switching
+            # elif "ChangeInnerState(" in line or "ChangeOuterState(" in line:
+            #     #BUG: The code below could be dealt with by using an inner/outer flag in the beginning of this function
+            #     if "eOuter" in caseVar and "ChangeInner" in line:
+            #         # Skips inner variable reset found in outer loop, inner loop should never call the outer loop change method.
+            #         continue
+            #     Match = re.search("^\s*Change(Inner|Outer)State\(([\w\s\.]+:=\s*|\s*)(\w+\.|\s*)(\w+)\s*\)", line)
+            #     if Match:
+            #         destState = f"{caseStatesHash[caseStates[-1]]}_{Match.group(4)}"
+            #         srcState = "Error"
+            #         condition = ""
+            #         if len(ifStates) > 0:
+            #             if lastLocalIfState[-1] != None:
+            #                 srcState = lastLocalIfState[-1]
+            #                 condition = ifConditions[-1]
+            #             else:    
+            #                 if elseStack[-1] == False: 
+            #                     # Not in an ELSE block for the current IF statement, using condition == TRUE   
+            #                     srcState = ifStates[-1]
+            #                     condition = ifConditions[-1]
+            #                 else: 
+            #                     # Branching from the top level's ELSE block, using condition == FALSE
+            #                     srcState = ifStates[-1]
+            #                     condition = setNotConditionStatement(ifConditions[-1])
+                                
+            #             branchString += f"\t{srcState} --> {destState} : {condition}\n"       
+                            
+            #         elif len(subStates) > 0:
+            #             #  Jump to another destination from the top substate  
+            #             branchString += f"\t{subStates[-1]} --> {destState}\n"
+            #         else:
+            #             eMsg = f"[Line {i}] FOUND ENUM STATE SWITCHING WITHOUT PREVIOUS SUBSTATE OR IF STATE.\nRETURNING EARLY...\n"
+            #             return printUmlException(umlString, eMsg)
+            #     else:
+            #         pass
+            #         # eMsg = f"[Line {i}] FOUND 'ChangeInnerState()' CALL, UNABLE TO PARSE.\nRETURNING EARLY...\n"
+            #         # return printUmlException(umlString, eMsg)
+      
         return umlString + branchString
       
-    def convertCaseToUML(self, code, caseCode, caseVar):
+    def convertCaseToUML(self, parsedCaseCode, caseVar):
         """ Using array as a stack:
         array.append(state) will append to back of array
         array[-1] will return element at the back of array
@@ -404,30 +442,25 @@ class PlantUmlGenerator():
 
         # Loop throught the implementation for each state and build UML 
         print(f"\nParsing for {caseVar}:")
-        implementationLines = code.splitlines() 
+        implementationLines = parsedCaseCode.splitlines() 
         for i, line in enumerate(implementationLines):
             
             # print(line)
             # Start by attempting to locate the start of any case statement
             if "CASE Cyclic" in line:
                 if caseVar in line:
-                    print(line)
-                    # print(Match.groups(0))
-                    # caseState = Match.groups(2)
                     # BUG: Assume only one case variable and case per FB
-                    # caseStates.append(Match.groups(2)) 
                     caseStates.append(caseVar)
-                    caseStatesHash.update({ caseVar : caseVar }) # Parent state requires no modified value in UML diagram
-                    umlString += getTabs(caseStates,subStates,ifStates,1) + f"state {caseStates[-1]} {GLOBALS_['CaseColourCode']} " + "{\n"        
+                    umlString += getTabs(1,1) + f"state {caseStates[-1]} {GLOBALS_['CaseColourCode']} " + "{\n"        
                     print(f"[Line {i}]\tStarted CASE {caseStates[-1]} OF...")
 
-            # Skip the nested case(s) - (redundant)
-            elif len(caseStates) > 1:
-                if "END_CASE" in line:
-                    # We will basically just keep coninuing, either finding other nested Cases, or completing them.
-                    print(f"[Line {i}]\t\t\tEND_CASE found for nested case, at caseStates length : {len(caseStates)}")
-                    umlString += getTabs(caseStates,subStates,ifStates,1) + "}\n"
-                    caseStatesHash.pop(caseStates.pop())
+            # # Skip the nested case(s) - (redundant)
+            # elif len(caseStates) > 1:
+            #     if "END_CASE" in line:
+            #         # We will basically just keep coninuing, either finding other nested Cases, or completing them.
+            #         print(f"[Line {i}]\t\t\tEND_CASE found for nested case, at caseStates length : {len(caseStates)}")
+            #         umlString += getTabs(caseStates,subStates,ifStates,1) + "}\n"
+            #         caseStatesHash.pop(caseStates.pop())
                         
             # Case started, begin by looking for END_CASE
             elif len(caseStates) > 0 and "END_CASE" in line:
@@ -486,91 +519,55 @@ class PlantUmlGenerator():
                     elsifCounter = 0
                     callCounter = 0
                 
-                #Inside of sub-state, look for sub-state switching
-                elif "ChangeInnerState(" in line or "ChangeOuterState(" in line:
-                    #BUG: The code below could be dealt with by using an inner/outer flag in the beginning of this function
-                    if "eOuter" in caseVar and "ChangeInner" in line:
-                        # Skips inner variable reset found in outer loop, inner loop should never call the outer loop change method.
-                        continue
-                    Match = re.search("^\s*Change(Inner|Outer)State\(([\w\s\.]+:=\s*|\s*)(\w+\.|\s*)(\w+)\s*\)", line)
-                    if Match:
-                        destState = f"{caseStatesHash[caseStates[-1]]}_{Match.group(4)}"
-                        srcState = "Error"
-                        condition = ""
-                        if len(ifStates) > 0:
-                            if lastLocalIfState[-1] != None:
-                                srcState = lastLocalIfState[-1]
-                                condition = ifConditions[-1]
-                            else:    
-                                if elseStack[-1] == False: 
-                                    # Not in an ELSE block for the current IF statement, using condition == TRUE   
-                                    srcState = ifStates[-1]
-                                    condition = ifConditions[-1]
-                                else: 
-                                    # Branching from the top level's ELSE block, using condition == FALSE
-                                    srcState = ifStates[-1]
-                                    condition = setNotConditionStatement(ifConditions[-1])
-                                    
-                            branchString += f"\t{srcState} --> {destState} : {condition}\n"       
-                                
-                        elif len(subStates) > 0:
-                            #  Jump to another destination from the top substate  
-                            branchString += f"\t{subStates[-1]} --> {destState}\n"
-                        else:
-                            eMsg = f"[Line {i}] FOUND ENUM STATE SWITCHING WITHOUT PREVIOUS SUBSTATE OR IF STATE.\nRETURNING EARLY...\n"
-                            return printUmlException(umlString, eMsg)
-                    else:
-                        pass
-                        # eMsg = f"[Line {i}] FOUND 'ChangeInnerState()' CALL, UNABLE TO PARSE.\nRETURNING EARLY...\n"
-                        # return printUmlException(umlString, eMsg)
+
                   
             ## Check for commented code in all cases
-            Match = re.search(self.CALL_COMMENT_RE, line)
-            if Match:
-                # print(callString)
-                if len(caseStates) == 0:
-                    # TODO: Add method calls from base node
-                    # TODO: need a variable to track root-node states
-                    pass
-                elif len(caseStates) > 0:
-                    callCounter += 1
-                    newCall = f"{subStates[-1]}_CALL_{callCounter}"
-                    callString = f"{Match.group(1)}"
-                    umlString += getTabs(caseStates,subStates,ifStates,1) + f"state \"{callString}\" as {newCall}\n"
+            # Match = re.search(self.CALL_COMMENT_RE, line)
+            # if Match:
+            #     # print(callString)
+            #     if len(caseStates) == 0:
+            #         # TODO: Add method calls from base node
+            #         # TODO: need a variable to track root-node states
+            #         pass
+            #     elif len(caseStates) > 0:
+            #         callCounter += 1
+            #         newCall = f"{subStates[-1]}_CALL_{callCounter}"
+            #         callString = f"{Match.group(1)}"
+            #         umlString += getTabs(caseStates,subStates,ifStates,1) + f"state \"{callString}\" as {newCall}\n"
                     
-                    if (len(ifStates) > 0):
-                        if lastLocalIfState[-1] == None:
-                            if elseStack[-1] == False: 
-                                # Branching from IF state  
-                                branchString += f"\t{ifStates[-1]} --> {newCall} : {ifConditions[-1]}\n"
-                            else: 
-                                # Branching from ELSE state
-                                branchString += f"\t{ifStates[-1]} --> {newCall} : {setNotConditionStatement(ifConditions[-1])}\n"
-                        else:
-                            # Branch from current-level local state
-                            branchString += f"\t{lastLocalIfState[-1]} --> {newCall} : {setNotConditionStatement(ifConditions[-1])}\n"       
-                        # Update last local state
-                        lastLocalIfState[-1] = newCall
-                    else:
-                        # Append branches from previous nested states to new base state
-                        # if len(statesToNextBaseState) > 0:
-                        #     branchString += makeLocalToBaseBranchString(statesToNextBaseState, newCall)  
-                        if len(caseStates) - len(firstState) == 0:
-                            # Branching from last BASE state
-                            branchString += f"\t{lastBaseState[-1]} --> {newCall}\n"
-                            lastBaseState[-1] = newCall
+            #         if (len(ifStates) > 0):
+            #             if lastLocalIfState[-1] == None:
+            #                 if elseStack[-1] == False: 
+            #                     # Branching from IF state  
+            #                     branchString += f"\t{ifStates[-1]} --> {newCall} : {ifConditions[-1]}\n"
+            #                 else: 
+            #                     # Branching from ELSE state
+            #                     branchString += f"\t{ifStates[-1]} --> {newCall} : {setNotConditionStatement(ifConditions[-1])}\n"
+            #             else:
+            #                 # Branch from current-level local state
+            #                 branchString += f"\t{lastLocalIfState[-1]} --> {newCall} : {setNotConditionStatement(ifConditions[-1])}\n"       
+            #             # Update last local state
+            #             lastLocalIfState[-1] = newCall
+            #         else:
+            #             # Append branches from previous nested states to new base state
+            #             # if len(statesToNextBaseState) > 0:
+            #             #     branchString += makeLocalToBaseBranchString(statesToNextBaseState, newCall)  
+            #             if len(caseStates) - len(firstState) == 0:
+            #                 # Branching from last BASE state
+            #                 branchString += f"\t{lastBaseState[-1]} --> {newCall}\n"
+            #                 lastBaseState[-1] = newCall
 
-                        elif len(caseStates) - len(firstState) > 0:
-                            # Entry point of subState
-                            umlString += getTabs(caseStates,subStates,ifStates,1) + f"[*] --> {newCall}\n"
-                            firstState.append(newCall)
-                            lastBaseState.append(newCall)
-                        else:
-                            eMsg = f"[Line {i}] ERROR: too many firstStates({len(firstState)}) for caseStates({len(caseStates)}).\nReturning Early..."
-                            printUmlException(umlString, eMsg)
+            #             elif len(caseStates) - len(firstState) > 0:
+            #                 # Entry point of subState
+            #                 umlString += getTabs(caseStates,subStates,ifStates,1) + f"[*] --> {newCall}\n"
+            #                 firstState.append(newCall)
+            #                 lastBaseState.append(newCall)
+            #             else:
+            #                 eMsg = f"[Line {i}] ERROR: too many firstStates({len(firstState)}) for caseStates({len(caseStates)}).\nReturning Early..."
+            #                 printUmlException(umlString, eMsg)
                         
-                else:
-                    eMsg = f"[Line {i}] ERROR: Negative number of caseStates({len(caseStates)}).\nReturning Early..."
-                    printUmlException(umlString, eMsg)
+            #     else:
+            #         eMsg = f"[Line {i}] ERROR: Negative number of caseStates({len(caseStates)}).\nReturning Early..."
+            #         printUmlException(umlString, eMsg)
                                                             
         return umlString
