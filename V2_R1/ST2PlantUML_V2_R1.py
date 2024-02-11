@@ -83,6 +83,7 @@ def parseTcPouFile(absFilePath, Name, outputDirAbsolute):
                             
                             
                     case ParsingStates.FIND_OUTER_METHOD:
+                      
                         if outerMethodFound:
                             if "<ST><![CDATA[" in line:
                                 line = line.replace("<ST><![CDATA[", "")
@@ -206,31 +207,7 @@ def main():
             parseTcPouFile(file, pouName, outputDir)
         print(f"\nFinished Parsing File(s), '.puml' output files can be found in generated in: {os.getcwd()}/{outputDir}")
         print(f"UML Diagrams can be generated @ {umlGeneratorLink}")
-                
 
-
-
-    # TESTING:
-    # subStateString = """<<Setup()>>>
-	# 		Setup();
-	# 		Setup_0();
-	# 		IF bActive THEN
-	# <<<Reset()>>>
-	# 			Reset();
-	# 			ChangeOuterState(E_OuterLoopSM_States.Operational);
-	# 		ELSE
-	# 			ChangeOuterState(E_OuterLoopSM_States.Inactive);
-	# 		END_IF
-    # """
-    # lines = subStateString.splitlines()
-    # start = 0
-    # end = len(lines)
-    # # print(end)
-    # state = 'setup'
-    # case = 'outer'
-    # UmlGenerator = PlantUmlGenerator()
-    # print(UmlGenerator.convertSubStateToUML(lines, case, state, start, end))
-    
     
     input("Press Enter to close. . .\n>> ")
     return # exit

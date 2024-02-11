@@ -1,0 +1,38 @@
+	>>
+	>>Start of Method : InnerLoopSM
+	>>
+	>>
+	CASE CyclicInnerCase(TO_STRING(eInnerState)) OF
+		E_ErgonomicStates.Idle:
+			IF bStart THEN
+				bStart := FALSE;
+				ChangeInnerState(E_ErgonomicStates.WaitForCommand);
+			END_IF
+		E_ErgonomicStates.WaitForCommand:
+			IF stErgoCommands.Done THEN
+				ChangeInnerState(E_ErgonomicStates.Idle);
+			END_IF
+		E_ErgonomicStates.JogLeftStepperOut:
+			ChangeInnerState(E_ErgonomicStates.WaitForCommand);
+		E_ErgonomicStates.JogLeftStepperIn:
+			ChangeInnerState(E_ErgonomicStates.WaitForCommand);		
+		E_ErgonomicStates.JogRightStepperOut:
+			ChangeInnerState(E_ErgonomicStates.WaitForCommand);
+		E_ErgonomicStates.JogRightStepperIn:
+			ChangeInnerState(E_ErgonomicStates.WaitForCommand);	
+		E_ErgonomicStates.JogLeftLinActuatorUp:
+			ChangeInnerState(E_ErgonomicStates.WaitForCommand);
+		E_ErgonomicStates.JogLeftLinActuatorDown:
+			ChangeInnerState(E_ErgonomicStates.WaitForCommand);
+		E_ErgonomicStates.JogRightLinActuatorUp:
+			ChangeInnerState(E_ErgonomicStates.WaitForCommand);
+		E_ErgonomicStates.JogRightLinActuatorDown:
+			ChangeInnerState(E_ErgonomicStates.WaitForCommand);
+	END_CASE
+
+
+States found:
+	eInnerState
+Methods Found:
+	InnerLoopSM
+Method-Case Pairs Found:

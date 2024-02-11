@@ -10,7 +10,7 @@ GLOBALS_ = {
     "FileHeader" : "\
 @startuml State Diagram\n\n\
 skin rose\n\
-left to right direction\n\
+'left to right direction\n\
 hide empty description\n\
 !theme reddress-lightgreen\n\
 title ",

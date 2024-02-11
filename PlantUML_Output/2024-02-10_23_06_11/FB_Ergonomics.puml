@@ -1,0 +1,48 @@
+@startuml State Diagram
+
+skin rose
+'left to right direction
+hide empty description
+!theme reddress-lightgreen
+title FB_Ergonomics State Diagram
+
+
+
+state FB_Ergonomics{
+
+state eInnerState #03adfc {
+	[*] --> eInnerState_Idle : START
+	state eInnerState_Idle{
+	state eInnerState_Idle_Node_0 <<choice>>
+	[*] --> eInnerState_Idle_Node_0 : START
+	eInnerState_Idle_Node_0 --> [*] : (bStart)
+	}
+	state eInnerState_WaitForCommand{
+	state eInnerState_WaitForCommand_Node_0 <<choice>>
+	[*] --> eInnerState_WaitForCommand_Node_0 : START
+	eInnerState_WaitForCommand_Node_0 --> [*] : (stErgoCommands.Done)
+	}
+	state eInnerState_JogLeftStepperOut{
+	}
+	state eInnerState_JogLeftStepperIn{
+	}
+	state eInnerState_JogRightStepperOut{
+	}
+	state eInnerState_JogRightStepperIn{
+	}
+	state eInnerState_JogLeftLinActuatorUp{
+	}
+	state eInnerState_JogLeftLinActuatorDown{
+	}
+	state eInnerState_JogRightLinActuatorUp{
+	}
+	state eInnerState_JogRightLinActuatorDown{
+	}
+	}
+	eInnerState_Idle --> eInnerState_WaitForCommand : (bStart)
+	eInnerState_WaitForCommand --> eInnerState_Idle : (stErgoCommands.Done)
+
+
+}
+
+@enduml
