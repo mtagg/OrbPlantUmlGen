@@ -53,7 +53,6 @@ class StateNode ():
             self.parentNode = lastNode 
             self.nodeLevel = self.parentNode.getLevel()
             self.condition = lastNode.getCondition()
-            # TODO: Get last condition??? even though it is not a conditional???
 
         else: # First node
           # print("First Node: ")

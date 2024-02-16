@@ -119,6 +119,10 @@ class PlantUmlGenerator():
             #search for ELSE statement
             elif Match := re.search("\s*ELSE\s*$", line):  
               try:      
+                
+                # Save the most recent sequence number
+                tempSeqNum = stateNodes[-1].getSeqNum()
+                
                 currentNodeLevel = stateNodes[-1].getLevel()          
                 
                 # Clear nodes until we reach last conditional parent
@@ -134,21 +138,13 @@ class PlantUmlGenerator():
                 # Invert the last same-level condition
                 if stateNodes[-1] != None:
                   stateNodes[-1].invertCondition()
+                  # Update the head node's sequence number to avoid overwrite issues.
+                  stateNodes[-1].setSeqNum(tempSeqNum)
                 else:
                   # TODO ERROR
                   pass
                 
-                
-                # TODO: Remove below
-                # # write transition from parent to new node
-                # if newNode.getParentNode() == None:
-                #   eMsg = f"[Line {i}] ERROR: Failed to create new ELSE, parentNode==None.\nReturning Early..."
-                #   return printUmlException(umlString, eMsg)
-                # else:
-                #   # No need to show a transition to an else, but future nodes may require this node's conditions
-                #   # branchString += self.umlWriteTransition(newNode.getParentNode(), newNode, newNode.getParentNode().getNotCondition())
-                #   pass
-                # stateNodes.append(newNode)
+      
               except:
                 traceback.print_exc()
                 eMsg = f"[Line {i}] ERROR: Failed to invert last IF/ELSIF to ELSE Node.\nReturning Early..."
@@ -179,9 +175,7 @@ class PlantUmlGenerator():
                 eMsg = f"[Line {i}] ERROR: Failed to END_IF.\nReturning Early..."
                 traceback.print_exc()
                 return printUmlException(umlString, eMsg)      
-              
-            
-            
+                    
             # search for FB_StateMachine style sub-state switching
             elif "ChangeInnerState(" in line or "ChangeOuterState(" in line:
                 # print(line)
@@ -198,11 +192,7 @@ class PlantUmlGenerator():
                     # BUG: This will need to be updated when we have a state change but...
                     # ...There may be other nodes to visit as part of the current level's condition...
                     # ... So the exit condition shoudl really be dealt with at the END_IF point.
-                    # TODO: Check if this is something Diego would want.
                     lastConditionalState = self.getLastSameLevelConditionalParent(stateNodes)
-                    # lastConditionalState = self.getLastConditionalState(stateNodes)
-                    # print(lastConditionalState.getCondition())
-                    # print(lastConditionalState)
                     if lastConditionalState != None:
                       umlString += makeBranchStringConditional(lastConditionalState.getId(), '[*]', lastConditionalState.getCondition())
                       branchString += makeBranchStringConditional(srcState,destState, lastConditionalState.getCondition())
@@ -221,12 +211,11 @@ class PlantUmlGenerator():
               pass  
                      
             # TODO: Search for any calling method/FB
-            elif Match := re.search("@\s*([\w\.]+\(.*\))\s*;", line):
-              pass
-            
-            
-            # Check for commented code in all cases
-            if Match := re.search(self.CALL_COMMENT_RE, line):
+            # elif Match := re.search("^\s*([\w\.]+)\(.*\)\s*;", line):
+            elif Match := re.search("^\s*([\w\.]+\(.*\))\s*;", line):
+              # TODO: Clean up the parsing of this call?
+              # filteredMatch = Match.group(1) + "()"
+              # print(f">>\n>>\n>>\n{Match.group(1)}\n>>\n>>\n>>\n")
               try:
                 newNode = StateNode(lastNode=stateNodes[-1], parentState=subState, name=Match.group(1))
                 umlString += self.umlDeclareNamedNode(newNode)
@@ -237,8 +226,23 @@ class PlantUmlGenerator():
                 stateNodes.append(newNode)
               except:    
                 traceback.print_exc()      
-                eMsg = f"[Line {i}] ERROR: Failed to parse '<<<{Match.groups(1)}>>>' Commented Code.\nReturning Early..."
+                eMsg = f"[Line {i}] ERROR: Failed to parse in-code Method/FB Call.\nReturning Early..."
                 printUmlException(umlString, eMsg)
+            
+            # Check for commented code in all cases
+            # if Match := re.search(self.CALL_COMMENT_RE, line):
+            #   try:
+            #     newNode = StateNode(lastNode=stateNodes[-1], parentState=subState, name=Match.group(1))
+            #     umlString += self.umlDeclareNamedNode(newNode)
+            #     if newNode.getParentNode() == None:
+            #       umlString +=  makeBranchStringConditional("[*]", newNode.getId(), "START")
+            #     else:
+            #       branchString += self.umlWriteTransition(newNode.getParentNode(), newNode, newNode.getParentNode().getCondition())
+            #     stateNodes.append(newNode)
+            #   except:    
+            #     traceback.print_exc()      
+            #     eMsg = f"[Line {i}] ERROR: Failed to parse '<<<{Match.groups(1)}>>>' Commented Code.\nReturning Early..."
+            #     printUmlException(umlString, eMsg)
       
 
       
