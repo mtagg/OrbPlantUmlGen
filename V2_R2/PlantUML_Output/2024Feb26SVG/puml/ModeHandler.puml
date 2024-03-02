@@ -1,0 +1,187 @@
+@startuml State Diagram
+
+!theme plain
+'skin rose
+'left to right direction
+hide empty description
+'!theme reddress-lightgreen
+title FB_ModeHandler State Diagram
+
+
+
+state FB_ModeHandler{
+
+state eInnerState #84b1f5 {
+	[*] --> eInnerState_Idle : START
+	state eInnerState_Idle #lightblue {
+state "ERROR" as eInnerState_Idle_ERROR <<exitPoint>> #ff3333
+	state eInnerState_Idle_Node_0 <<choice>>
+	[*] ---> eInnerState_Idle_Node_0 : START
+		state eInnerState_Idle_Node_1 <<choice>>
+	eInnerState_Idle_Node_1 ---> [*] : (EnableArms())
+	}
+	state eInnerState_Selftest1 #lightblue {
+state "ERROR" as eInnerState_Selftest1_ERROR <<exitPoint>> #ff3333
+	state eInnerState_Selftest1_Node_0 <<choice>>
+	[*] ---> eInnerState_Selftest1_Node_0 : START
+	eInnerState_Selftest1_Node_0 ---> [*] : (fbRightArm.Ready\nAND  fbLeftArm.Ready)
+	state "fbEventHandler(UNABLE_TO_START_TASK)" as eInnerState_Selftest1_Node_1 
+	}
+	state eInnerState_Selftest2 #lightblue {
+state "ERROR" as eInnerState_Selftest2_ERROR <<exitPoint>> #ff3333
+	state eInnerState_Selftest2_Node_0 <<choice>>
+	[*] ---> eInnerState_Selftest2_Node_0 : START
+	eInnerState_Selftest2_Node_0 ---> [*] : (stFrontEnd.bGoToIdle_FE)
+		state eInnerState_Selftest2_Node_1 <<choice>>
+			state eInnerState_Selftest2_Node_2 <<choice>>
+	eInnerState_Selftest2_Node_2 ---> [*] : (fbRightArm.Calibrated\nAND fbLeftArm.Calibrated)
+			state "fbEventHandler(TASK_FAILED)" as eInnerState_Selftest2_Node_3 
+		state eInnerState_Selftest2_Node_4 <<choice>>
+	eInnerState_Selftest2_Node_4 ---> [*] : (CheckForFailedDockedArm(arm:=fbLeftArm)\nOR CheckForFailedDockedArm(arm:=fbRightArm))
+	}
+	state eInnerState_SelftestUndocked #lightblue {
+state "ERROR" as eInnerState_SelftestUndocked_ERROR <<exitPoint>> #ff3333
+	state eInnerState_SelftestUndocked_Node_0 <<choice>>
+	[*] ---> eInnerState_SelftestUndocked_Node_0 : START
+	eInnerState_SelftestUndocked_Node_0 ---> [*] : (fbRightArm.Docked\nAND fbLeftArm.Docked)
+	}
+	state eInnerState_HaltSelftest #lightblue {
+state "ERROR" as eInnerState_HaltSelftest_ERROR <<exitPoint>> #ff3333
+	state eInnerState_HaltSelftest_Node_0 <<choice>>
+	[*] ---> eInnerState_HaltSelftest_Node_0 : START
+	eInnerState_HaltSelftest_Node_0 ---> [*] : (DisableArms())
+	}
+	state eInnerState_Ergonomics1 #lightblue {
+state "ERROR" as eInnerState_Ergonomics1_ERROR <<exitPoint>> #ff3333
+	state eInnerState_Ergonomics1_Node_0 <<choice>>
+	[*] ---> eInnerState_Ergonomics1_Node_0 : START
+		state eInnerState_Ergonomics1_Node_1 <<choice>>
+		state "ResetErgonomicsCommands()" as eInnerState_Ergonomics1_Node_2 
+	eInnerState_Ergonomics1_Node_2 ---> [*] : (fbRightArm.Calibrated\nAND fbLeftArm.Calibrated)
+		state "fbEventHandler(TASK_FAILED)" as eInnerState_Ergonomics1_Node_3 
+	state "fbEventHandler(UNABLE_TO_START_TASK)" as eInnerState_Ergonomics1_Node_4 
+	}
+	state eInnerState_Ergonomics2 #lightblue {
+state "ERROR" as eInnerState_Ergonomics2_ERROR <<exitPoint>> #ff3333
+	state eInnerState_Ergonomics2_Node_0 <<choice>>
+	[*] ---> eInnerState_Ergonomics2_Node_0 : START
+	eInnerState_Ergonomics2_Node_0 ---> [*] : (stFrontEnd.bGoToIdle_FE)
+		state eInnerState_Ergonomics2_Node_1 <<choice>>
+	eInnerState_Ergonomics2_Node_1 ---> [*] : (fbRightArm.Ready\nAND  fbLeftArm.Ready)
+			state eInnerState_Ergonomics2_Node_2 <<choice>>
+			state eInnerState_Ergonomics2_Node_3 <<choice>>
+			state "fbEventHandler(TASK_FAILED)" as eInnerState_Ergonomics2_Node_4 
+			state eInnerState_Ergonomics2_Node_5 <<choice>>
+			state "fbEventHandler(TASK_FAILED)" as eInnerState_Ergonomics2_Node_6 
+	}
+	state eInnerState_HaltErgonomics #lightblue {
+state "ERROR" as eInnerState_HaltErgonomics_ERROR <<exitPoint>> #ff3333
+	state eInnerState_HaltErgonomics_Node_0 <<choice>>
+	[*] ---> eInnerState_HaltErgonomics_Node_0 : START
+	eInnerState_HaltErgonomics_Node_0 ---> [*] : (fbRightArm.Ready\nAND  fbLeftArm.Ready)
+		state eInnerState_HaltErgonomics_Node_1 <<choice>>
+		state "fbEventHandler(TASK_FAILED)" as eInnerState_HaltErgonomics_Node_2 
+		state eInnerState_HaltErgonomics_Node_3 <<choice>>
+		state "fbEventHandler(TASK_FAILED)" as eInnerState_HaltErgonomics_Node_4 
+	}
+	state eInnerState_Teleoperation1 #lightblue {
+state "ERROR" as eInnerState_Teleoperation1_ERROR <<exitPoint>> #ff3333
+	state eInnerState_Teleoperation1_Node_0 <<choice>>
+	[*] ---> eInnerState_Teleoperation1_Node_0 : START
+		state eInnerState_Teleoperation1_Node_1 <<choice>>
+	eInnerState_Teleoperation1_Node_1 ---> [*] : (fbRightArm.Calibrated\nAND fbLeftArm.Calibrated)
+		state "fbEventHandler(TASK_FAILED)" as eInnerState_Teleoperation1_Node_2 
+	state "fbEventHandler(UNABLE_TO_START_TASK)" as eInnerState_Teleoperation1_Node_3 
+	}
+	state eInnerState_Teleoperation2 #lightblue {
+state "ERROR" as eInnerState_Teleoperation2_ERROR <<exitPoint>> #ff3333
+	state eInnerState_Teleoperation2_Node_0 <<choice>>
+	[*] ---> eInnerState_Teleoperation2_Node_0 : START
+	eInnerState_Teleoperation2_Node_0 ---> [*] : (stFrontEnd.bGoToIdle_FE)
+		state eInnerState_Teleoperation2_Node_1 <<choice>>
+	eInnerState_Teleoperation2_Node_1 ---> [*] : (fbRightArm.Ready\nAND  fbLeftArm.Ready)
+			state eInnerState_Teleoperation2_Node_2 <<choice>>
+			state "fbEventHandler(TASK_FAILED)" as eInnerState_Teleoperation2_Node_3 
+			state eInnerState_Teleoperation2_Node_4 <<choice>>
+			state "fbEventHandler(TASK_FAILED)" as eInnerState_Teleoperation2_Node_5 
+	}
+	state eInnerState_HaltTeleoperation #lightblue {
+state "ERROR" as eInnerState_HaltTeleoperation_ERROR <<exitPoint>> #ff3333
+	state eInnerState_HaltTeleoperation_Node_0 <<choice>>
+	[*] ---> eInnerState_HaltTeleoperation_Node_0 : START
+	eInnerState_HaltTeleoperation_Node_0 ---> [*] : (fbRightArm.Ready\nAND  fbLeftArm.Ready)
+		state eInnerState_HaltTeleoperation_Node_1 <<choice>>
+		state "fbEventHandler(TASK_FAILED)" as eInnerState_HaltTeleoperation_Node_2 
+		state eInnerState_HaltTeleoperation_Node_3 <<choice>>
+		state "fbEventHandler(TASK_FAILED)" as eInnerState_HaltTeleoperation_Node_4 
+	}
+	state eInnerState_EndCase #lightblue {
+state "ERROR" as eInnerState_EndCase_ERROR <<exitPoint>> #ff3333
+	}
+	}
+	eInnerState_Idle_Node_0 ---> eInnerState_Idle_Node_1 : (stFrontEnd.bStartSelftest_FE)
+	eInnerState_Idle ---> eInnerState_Selftest1 : (EnableArms())
+	eInnerState_Selftest1 ---> eInnerState_Selftest2 : (fbRightArm.Ready\nAND  fbLeftArm.Ready)
+	eInnerState_Selftest1_Node_0 ---> eInnerState_Selftest1_Node_1 : (NOT (fbRightArm.Ready\nAND  fbLeftArm.Ready))
+	eInnerState_Selftest1_Node_1 ---> eInnerState_Selftest1_ERROR : (NOT (fbRightArm.Ready\nAND  fbLeftArm.Ready))
+	eInnerState_Selftest2 ---> eInnerState_HaltSelftest : (stFrontEnd.bGoToIdle_FE)
+	eInnerState_Selftest2_Node_0 ---> eInnerState_Selftest2_Node_1 : (NOT (stFrontEnd.bGoToIdle_FE))
+	eInnerState_Selftest2_Node_1 ---> eInnerState_Selftest2_Node_2 : (fbRightArm.Ready\nAND fbLeftArm.Ready)
+	eInnerState_Selftest2 ---> eInnerState_Ergonomics1 : (fbRightArm.Calibrated\nAND fbLeftArm.Calibrated)
+	eInnerState_Selftest2_Node_2 ---> eInnerState_Selftest2_Node_3 : (NOT (fbRightArm.Calibrated\nAND fbLeftArm.Calibrated))
+	eInnerState_Selftest2_Node_3 ---> eInnerState_Selftest2_ERROR : (NOT (fbRightArm.Calibrated\nAND fbLeftArm.Calibrated))
+	eInnerState_Selftest2_Node_1 ---> eInnerState_Selftest2_Node_4 : (NOT (fbRightArm.Ready AND fbLeftArm.Ready))
+	eInnerState_Selftest2 ---> eInnerState_SelftestUndocked : (CheckForFailedDockedArm(arm:=fbLeftArm)\nOR CheckForFailedDockedArm(arm:=fbRightArm))
+	eInnerState_SelftestUndocked ---> eInnerState_Selftest1 : (fbRightArm.Docked\nAND fbLeftArm.Docked)
+	eInnerState_HaltSelftest ---> eInnerState_Idle : (DisableArms())
+	eInnerState_Ergonomics1_Node_0 ---> eInnerState_Ergonomics1_Node_1 : (fbRightArm.Ready\nAND  fbLeftArm.Ready)
+	eInnerState_Ergonomics1_Node_1 ---> eInnerState_Ergonomics1_Node_2 : (fbRightArm.Calibrated\nAND fbLeftArm.Calibrated)
+	eInnerState_Ergonomics1 ---> eInnerState_Ergonomics2 : (fbRightArm.Calibrated\nAND fbLeftArm.Calibrated)
+	eInnerState_Ergonomics1_Node_1 ---> eInnerState_Ergonomics1_Node_3 : (NOT (fbRightArm.Calibrated\nAND fbLeftArm.Calibrated))
+	eInnerState_Ergonomics1_Node_3 ---> eInnerState_Ergonomics1_ERROR : (NOT (fbRightArm.Calibrated\nAND fbLeftArm.Calibrated))
+	eInnerState_Ergonomics1_Node_0 ---> eInnerState_Ergonomics1_Node_4 : (NOT (fbRightArm.Ready\nAND  fbLeftArm.Ready))
+	eInnerState_Ergonomics1_Node_4 ---> eInnerState_Ergonomics1_ERROR : (NOT (fbRightArm.Ready\nAND  fbLeftArm.Ready))
+	eInnerState_Ergonomics2 ---> eInnerState_HaltErgonomics : (stFrontEnd.bGoToIdle_FE)
+	eInnerState_Ergonomics2_Node_0 ---> eInnerState_Ergonomics2_Node_1 : (NOT (stFrontEnd.bGoToIdle_FE))
+	eInnerState_Ergonomics2 ---> eInnerState_Teleoperation1 : (fbRightArm.Ready\nAND  fbLeftArm.Ready)
+	eInnerState_Ergonomics2_Node_1 ---> eInnerState_Ergonomics2_Node_2 : (NOT (fbRightArm.Ready\nAND  fbLeftArm.Ready))
+	eInnerState_Ergonomics2_Node_1 ---> eInnerState_Ergonomics2_Node_3 : (NOT (fbRightArm.Ready\nAND  fbLeftArm.Ready))
+	eInnerState_Ergonomics2_Node_3 ---> eInnerState_Ergonomics2_Node_4 : (fbRightArm.Failed)
+	eInnerState_Ergonomics2_Node_4 ---> eInnerState_Ergonomics2_ERROR : (fbRightArm.Failed)
+	eInnerState_Ergonomics2_Node_1 ---> eInnerState_Ergonomics2_Node_5 : (NOT (fbRightArm.Ready\nAND  fbLeftArm.Ready))
+	eInnerState_Ergonomics2_Node_5 ---> eInnerState_Ergonomics2_Node_6 : (fbLeftArm.Failed)
+	eInnerState_Ergonomics2_Node_6 ---> eInnerState_Ergonomics2_ERROR : (fbLeftArm.Failed)
+	eInnerState_HaltErgonomics ---> eInnerState_Idle : (fbRightArm.Ready\nAND  fbLeftArm.Ready)
+	eInnerState_HaltErgonomics_Node_0 ---> eInnerState_HaltErgonomics_Node_1 : (NOT (fbRightArm.Ready\nAND  fbLeftArm.Ready))
+	eInnerState_HaltErgonomics_Node_1 ---> eInnerState_HaltErgonomics_Node_2 : (fbRightArm.Failed)
+	eInnerState_HaltErgonomics_Node_2 ---> eInnerState_HaltErgonomics_ERROR : (fbRightArm.Failed)
+	eInnerState_HaltErgonomics_Node_0 ---> eInnerState_HaltErgonomics_Node_3 : (NOT (fbRightArm.Ready\nAND  fbLeftArm.Ready))
+	eInnerState_HaltErgonomics_Node_3 ---> eInnerState_HaltErgonomics_Node_4 : (fbLeftArm.Failed)
+	eInnerState_HaltErgonomics_Node_4 ---> eInnerState_HaltErgonomics_ERROR : (fbLeftArm.Failed)
+	eInnerState_Teleoperation1_Node_0 ---> eInnerState_Teleoperation1_Node_1 : (fbRightArm.Ready\nAND  fbLeftArm.Ready)
+	eInnerState_Teleoperation1 ---> eInnerState_Teleoperation2 : (fbRightArm.Calibrated\nAND fbLeftArm.Calibrated)
+	eInnerState_Teleoperation1_Node_1 ---> eInnerState_Teleoperation1_Node_2 : (NOT (fbRightArm.Calibrated\nAND fbLeftArm.Calibrated))
+	eInnerState_Teleoperation1_Node_2 ---> eInnerState_Teleoperation1_ERROR : (NOT (fbRightArm.Calibrated\nAND fbLeftArm.Calibrated))
+	eInnerState_Teleoperation1_Node_0 ---> eInnerState_Teleoperation1_Node_3 : (NOT (fbRightArm.Ready\nAND  fbLeftArm.Ready))
+	eInnerState_Teleoperation1_Node_3 ---> eInnerState_Teleoperation1_ERROR : (NOT (fbRightArm.Ready\nAND  fbLeftArm.Ready))
+	eInnerState_Teleoperation2 ---> eInnerState_HaltTeleoperation : (stFrontEnd.bGoToIdle_FE)
+	eInnerState_Teleoperation2_Node_0 ---> eInnerState_Teleoperation2_Node_1 : (NOT (stFrontEnd.bGoToIdle_FE))
+	eInnerState_Teleoperation2 ---> eInnerState_EndCase : (fbRightArm.Ready\nAND  fbLeftArm.Ready)
+	eInnerState_Teleoperation2_Node_1 ---> eInnerState_Teleoperation2_Node_2 : (NOT (fbRightArm.Ready\nAND  fbLeftArm.Ready))
+	eInnerState_Teleoperation2_Node_2 ---> eInnerState_Teleoperation2_Node_3 : (fbRightArm.Failed)
+	eInnerState_Teleoperation2_Node_3 ---> eInnerState_Teleoperation2_ERROR : (fbRightArm.Failed)
+	eInnerState_Teleoperation2_Node_1 ---> eInnerState_Teleoperation2_Node_4 : (NOT (fbRightArm.Ready\nAND  fbLeftArm.Ready))
+	eInnerState_Teleoperation2_Node_4 ---> eInnerState_Teleoperation2_Node_5 : (fbLeftArm.Failed)
+	eInnerState_Teleoperation2_Node_5 ---> eInnerState_Teleoperation2_ERROR : (fbLeftArm.Failed)
+	eInnerState_HaltTeleoperation ---> eInnerState_Idle : (fbRightArm.Ready\nAND  fbLeftArm.Ready)
+	eInnerState_HaltTeleoperation_Node_0 ---> eInnerState_HaltTeleoperation_Node_1 : (NOT (fbRightArm.Ready\nAND  fbLeftArm.Ready))
+	eInnerState_HaltTeleoperation_Node_1 ---> eInnerState_HaltTeleoperation_Node_2 : (fbRightArm.Failed)
+	eInnerState_HaltTeleoperation_Node_2 ---> eInnerState_HaltTeleoperation_ERROR : (fbRightArm.Failed)
+	eInnerState_HaltTeleoperation_Node_0 ---> eInnerState_HaltTeleoperation_Node_3 : (NOT (fbRightArm.Ready\nAND  fbLeftArm.Ready))
+	eInnerState_HaltTeleoperation_Node_3 ---> eInnerState_HaltTeleoperation_Node_4 : (fbLeftArm.Failed)
+	eInnerState_HaltTeleoperation_Node_4 ---> eInnerState_HaltTeleoperation_ERROR : (fbLeftArm.Failed)
+
+
+}
+
+@enduml

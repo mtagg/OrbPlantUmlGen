@@ -112,7 +112,10 @@ class StateNode ():
     
     def getCondition(self) -> str:
       # Warning: Can return None Type
-      return self.condition
+      if self.condition == None:
+        return self.condition
+      else:
+        return self.condition.replace(" AND ", "\\nAND ").replace(" OR ", "\\nOR ")
     
     def invertCondition(self) -> None:
       # Warning: Does not update "None" type

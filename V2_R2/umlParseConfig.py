@@ -9,18 +9,21 @@
 GLOBALS_ = {
     "FileHeader" : "\
 @startuml State Diagram\n\n\
-skin rose\n\
+!theme plain\n\
+'skin rose\n\
 'left to right direction\n\
 hide empty description\n\
-!theme reddress-lightgreen\n\
+'!theme reddress-lightgreen\n\
 title ",
 
     "FileFooter" : "\
 \n@enduml\n",
 
 
-    "CaseColourCode" : "#03adfc",
+    "CaseColourCode" : "#84b1f5",
     "MethodColourCode" : "#fc036b",
+    "SubStateColourCode" : "#lightblue",
+    "ErrorColourCode" : "#ff3333",
     # 
     # "TestTcPou" : "./FB_DbEventLogger.TcPOU"
     # "TestTcPou" : "./FB_ModeHandler.TcPOU"

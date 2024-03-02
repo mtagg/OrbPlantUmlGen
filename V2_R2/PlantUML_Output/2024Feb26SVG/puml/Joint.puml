@@ -1,0 +1,108 @@
+@startuml State Diagram
+
+!theme plain
+'skin rose
+'left to right direction
+hide empty description
+'!theme reddress-lightgreen
+title FB_Joint State Diagram
+
+
+
+state FB_Joint{
+
+state eInnerState #84b1f5 {
+	[*] --> eInnerState_Idle : START
+	state eInnerState_Idle #lightblue {
+state "ERROR" as eInnerState_Idle_ERROR <<exitPoint>> #ff3333
+	state eInnerState_Idle_Node_0 <<choice>>
+	[*] ---> eInnerState_Idle_Node_0 : START
+		state eInnerState_Idle_Node_1 <<choice>>
+	eInnerState_Idle_Node_1 ---> [*] : (bDualEncoderJoint\nOR bSingleAbsoluteJoint)
+	eInnerState_Idle_Node_1 ---> [*] : (NOT (bDualEncoderJoint\nOR bSingleAbsoluteJoint))
+		state eInnerState_Idle_Node_2 <<choice>>
+		state eInnerState_Idle_Node_3 <<choice>>
+	}
+	state eInnerState_SetAbsEncNC_Params1 #lightblue {
+state "ERROR" as eInnerState_SetAbsEncNC_Params1_ERROR <<exitPoint>> #ff3333
+	state eInnerState_SetAbsEncNC_Params1_Node_0 <<choice>>
+	[*] ---> eInnerState_SetAbsEncNC_Params1_Node_0 : START
+	state "fbEventHandler(SYSTEM_IN_UNEXPECTED_STATE)" as eInnerState_SetAbsEncNC_Params1_Node_1 
+		state eInnerState_SetAbsEncNC_Params1_Node_2 <<choice>>
+		state "fbEventHandler(UNABLE_TO_START_TASK)" as eInnerState_SetAbsEncNC_Params1_Node_3 
+	eInnerState_SetAbsEncNC_Params1_Node_2 ---> [*] : (NOT (fbAbsEncoder.bError))
+	}
+	state eInnerState_SetAbsEncNC_Params2 #lightblue {
+state "ERROR" as eInnerState_SetAbsEncNC_Params2_ERROR <<exitPoint>> #ff3333
+	state eInnerState_SetAbsEncNC_Params2_Node_0 <<choice>>
+	[*] ---> eInnerState_SetAbsEncNC_Params2_Node_0 : START
+		state eInnerState_SetAbsEncNC_Params2_Node_1 <<choice>>
+		state "fbEventHandler(TASK_FAILED)" as eInnerState_SetAbsEncNC_Params2_Node_2 
+			state eInnerState_SetAbsEncNC_Params2_Node_3 <<choice>>
+				state eInnerState_SetAbsEncNC_Params2_Node_4 <<choice>>
+					state eInnerState_SetAbsEncNC_Params2_Node_5 <<choice>>
+	eInnerState_SetAbsEncNC_Params2_Node_4 ---> [*] : (bDualEncoderJoint)
+	eInnerState_SetAbsEncNC_Params2_Node_4 ---> [*] : (NOT (bDualEncoderJoint))
+			state "fbEventHandler(TASK_FAILED)" as eInnerState_SetAbsEncNC_Params2_Node_6 
+	}
+	state eInnerState_SetIncEncNC_Params1 #lightblue {
+state "ERROR" as eInnerState_SetIncEncNC_Params1_ERROR <<exitPoint>> #ff3333
+	state eInnerState_SetIncEncNC_Params1_Node_0 <<choice>>
+	[*] ---> eInnerState_SetIncEncNC_Params1_Node_0 : START
+	state "fbEventHandler(SYSTEM_IN_UNEXPECTED_STATE)" as eInnerState_SetIncEncNC_Params1_Node_1 
+		state eInnerState_SetIncEncNC_Params1_Node_2 <<choice>>
+		state "fbEventHandler(UNABLE_TO_START_TASK)" as eInnerState_SetIncEncNC_Params1_Node_3 
+	eInnerState_SetIncEncNC_Params1_Node_2 ---> [*] : (NOT (fbIncEncoder.bError))
+	}
+	state eInnerState_SetIncEncNC_Params2 #lightblue {
+state "ERROR" as eInnerState_SetIncEncNC_Params2_ERROR <<exitPoint>> #ff3333
+	state eInnerState_SetIncEncNC_Params2_Node_0 <<choice>>
+	[*] ---> eInnerState_SetIncEncNC_Params2_Node_0 : START
+		state eInnerState_SetIncEncNC_Params2_Node_1 <<choice>>
+		state "fbEventHandler(TASK_FAILED)" as eInnerState_SetIncEncNC_Params2_Node_2 
+			state eInnerState_SetIncEncNC_Params2_Node_3 <<choice>>
+	eInnerState_SetIncEncNC_Params2_Node_3 ---> [*] : (fbIncEncoder.Calibrated)
+			state "fbEventHandler(TASK_FAILED)" as eInnerState_SetIncEncNC_Params2_Node_4 
+	}
+	}
+	eInnerState_Idle_Node_0 ---> eInnerState_Idle_Node_1 : (bStartCalibration)
+	eInnerState_Idle ---> eInnerState_SetAbsEncNC_Params1 : (bDualEncoderJoint\nOR bSingleAbsoluteJoint)
+	eInnerState_Idle ---> eInnerState_SetIncEncNC_Params1 : (NOT (bDualEncoderJoint\nOR bSingleAbsoluteJoint))
+	eInnerState_Idle_Node_0 ---> eInnerState_Idle_Node_2 : (bStartCalibration)
+	eInnerState_Idle_Node_2 ---> eInnerState_Idle_ERROR : (bStartCalibration)
+	eInnerState_Idle_Node_2 ---> eInnerState_Idle_Node_3 : (NOT (UpdateAngles() = FALSE))
+	eInnerState_Idle_Node_3 ---> eInnerState_Idle_ERROR : (UpdateAngles() = FALSE)
+	eInnerState_SetAbsEncNC_Params1_Node_0 ---> eInnerState_SetAbsEncNC_Params1_Node_1 : (fbAbsEncoder.Busy)
+	eInnerState_SetAbsEncNC_Params1_Node_1 ---> eInnerState_SetAbsEncNC_Params1_ERROR : (fbAbsEncoder.Busy)
+	eInnerState_SetAbsEncNC_Params1_Node_0 ---> eInnerState_SetAbsEncNC_Params1_Node_2 : (NOT (fbAbsEncoder.Busy))
+	eInnerState_SetAbsEncNC_Params1_Node_2 ---> eInnerState_SetAbsEncNC_Params1_Node_3 : (fbAbsEncoder.bError)
+	eInnerState_SetAbsEncNC_Params1_Node_3 ---> eInnerState_SetAbsEncNC_Params1_ERROR : (fbAbsEncoder.bError)
+	eInnerState_SetAbsEncNC_Params1 ---> eInnerState_SetAbsEncNC_Params2 : (NOT (fbAbsEncoder.bError))
+	eInnerState_SetAbsEncNC_Params2_Node_0 ---> eInnerState_SetAbsEncNC_Params2_Node_1 : (NOT (fbAbsEncoder.Busy))
+	eInnerState_SetAbsEncNC_Params2_Node_1 ---> eInnerState_SetAbsEncNC_Params2_Node_2 : (fbAbsEncoder.bError)
+	eInnerState_SetAbsEncNC_Params2_Node_2 ---> eInnerState_SetAbsEncNC_Params2_ERROR : (fbAbsEncoder.bError)
+	eInnerState_SetAbsEncNC_Params2_Node_1 ---> eInnerState_SetAbsEncNC_Params2_Node_3 : (NOT (fbAbsEncoder.bError))
+	eInnerState_SetAbsEncNC_Params2_Node_3 ---> eInnerState_SetAbsEncNC_Params2_Node_4 : (fbAbsEncoder.Calibrated)
+	eInnerState_SetAbsEncNC_Params2_Node_4 ---> eInnerState_SetAbsEncNC_Params2_Node_5 : (bDualEncoderJoint)
+	eInnerState_SetAbsEncNC_Params2 ---> eInnerState_SetIncEncNC_Params1 : (bDualEncoderJoint)
+	eInnerState_SetAbsEncNC_Params2 ---> eInnerState_Idle : (NOT (bDualEncoderJoint))
+	eInnerState_SetAbsEncNC_Params2_Node_3 ---> eInnerState_SetAbsEncNC_Params2_Node_6 : (NOT (fbAbsEncoder.Calibrated))
+	eInnerState_SetAbsEncNC_Params2_Node_6 ---> eInnerState_SetAbsEncNC_Params2_ERROR : (NOT (fbAbsEncoder.Calibrated))
+	eInnerState_SetIncEncNC_Params1_Node_0 ---> eInnerState_SetIncEncNC_Params1_Node_1 : (fbIncEncoder.Busy)
+	eInnerState_SetIncEncNC_Params1_Node_1 ---> eInnerState_SetIncEncNC_Params1_ERROR : (fbIncEncoder.Busy)
+	eInnerState_SetIncEncNC_Params1_Node_0 ---> eInnerState_SetIncEncNC_Params1_Node_2 : (NOT (fbIncEncoder.Busy))
+	eInnerState_SetIncEncNC_Params1_Node_2 ---> eInnerState_SetIncEncNC_Params1_Node_3 : (fbIncEncoder.bError)
+	eInnerState_SetIncEncNC_Params1_Node_3 ---> eInnerState_SetIncEncNC_Params1_ERROR : (fbIncEncoder.bError)
+	eInnerState_SetIncEncNC_Params1 ---> eInnerState_SetIncEncNC_Params2 : (NOT (fbIncEncoder.bError))
+	eInnerState_SetIncEncNC_Params2_Node_0 ---> eInnerState_SetIncEncNC_Params2_Node_1 : (NOT (fbIncEncoder.Busy))
+	eInnerState_SetIncEncNC_Params2_Node_1 ---> eInnerState_SetIncEncNC_Params2_Node_2 : (fbIncEncoder.bError)
+	eInnerState_SetIncEncNC_Params2_Node_2 ---> eInnerState_SetIncEncNC_Params2_ERROR : (fbIncEncoder.bError)
+	eInnerState_SetIncEncNC_Params2_Node_1 ---> eInnerState_SetIncEncNC_Params2_Node_3 : (NOT (fbIncEncoder.bError))
+	eInnerState_SetIncEncNC_Params2 ---> eInnerState_Idle : (fbIncEncoder.Calibrated)
+	eInnerState_SetIncEncNC_Params2_Node_3 ---> eInnerState_SetIncEncNC_Params2_Node_4 : (NOT (fbIncEncoder.Calibrated))
+	eInnerState_SetIncEncNC_Params2_Node_4 ---> eInnerState_SetIncEncNC_Params2_ERROR : (NOT (fbIncEncoder.Calibrated))
+
+
+}
+
+@enduml

@@ -19,7 +19,7 @@ class PlantUmlGenerator():
     def __init__(self) -> None:
         self.NEW_CYCLIC_CASE_RE = f"^\s+CASE\s+Cyclic(Inner|Outer)Case\([^(]+\w+\((\w+)\)\)\s+OF"
         self.NEW_STANDARD_CASE_RE = f"^\s*CASE\s+([\w\.]+)\s+OF\s*$" # TODO: Can i get rid of the \. in group 1???
-        self.NEW_SUBSTATE_RE = "\s*\.*(\w+)\s*:[^=;]*$"
+        self.NEW_SUBSTATE_RE = "\s*\w*\.*(\w+)\s*:[^=\'\";]*$"
         self.ENUM_STATE_SWITCH_RE = ":=\s*\w*\.*(\w+)\s*\.*;\s*$"
         self.GENERAL_IF_THEN_RE = "^\s*IF.*(THEN|)$"
         self.GENERAL_ELSIF_THEN_RE = "\s*ELSIF\s*([\s\(\)\[\]\.\w><=:.,]+)\s*(THEN|\s*\n)\s*$"
@@ -41,20 +41,22 @@ class PlantUmlGenerator():
         return None
       nodeLevel = nodeArray[-1].getLevel()
       tempNode = nodeArray[-1]
-      while tempNode.getLevel() == nodeLevel:
-        if tempNode == None:
+      while tempNode != None:
+        if tempNode.getLevel() != nodeLevel:
           break
         if tempNode.getCondition() != None:
           return tempNode
         tempNode = tempNode.getParentNode()
-      return nodeArray[-1]
-    
+      return nodeArray[-1]  
 
     def umlDeclareIF(self, node):
       return getTabs(node.getLevel(),1) + f"state {node.getId()} <<choice>>\n"
       
-    def umlDeclareNamedNode(self,node):
-      return getTabs(node.getLevel(),1) + f"state \"{node.getName()}\" as {node.getId()}\n"
+    def umlDeclareNamedNode(self,node, error=False):
+      colour = ''
+      if error:
+        colour = GLOBALS_["ErrorColourCode"]
+      return getTabs(node.getLevel(),1) + f"state \"{node.getName()}\" as {node.getId()} {colour}\n"
     
     def umlWriteTransition(self, parentNode, node, transitionCondition):
       if transitionCondition == None:
@@ -71,6 +73,10 @@ class PlantUmlGenerator():
         stateNodes.append(None)
         umlString = ""
         branchString = ""
+        errorExit = subState+'_ERROR'
+        
+        umlString += f"state \"ERROR\" as {errorExit} <<exitPoint>> {GLOBALS_['ErrorColourCode']}\n"
+        # branchString += makeBranchStringConditional(errorExit, f'ERROR <<exitPoint>> {GLOBALS_["ErrorColourCode"]}', 'bError:=TRUE')
         
         for i, line in enumerate(caseCodeLines):
           if i == endLine:
@@ -121,6 +127,7 @@ class PlantUmlGenerator():
               try:      
                 
                 # Save the most recent sequence number
+                # TODO: Update sequence# at the method level
                 tempSeqNum = stateNodes[-1].getSeqNum()
                 
                 currentNodeLevel = stateNodes[-1].getLevel()          
@@ -139,6 +146,7 @@ class PlantUmlGenerator():
                 if stateNodes[-1] != None:
                   stateNodes[-1].invertCondition()
                   # Update the head node's sequence number to avoid overwrite issues.
+                  # TODO: Update sequence# at the method level
                   stateNodes[-1].setSeqNum(tempSeqNum)
                 else:
                   # TODO ERROR
@@ -155,6 +163,7 @@ class PlantUmlGenerator():
               try:
                 
                 # Save the most recent sequence number
+                # TODO: Update sequence# at the method level
                 tempSeqNum = stateNodes[-1].getSeqNum()
                 
                 # clear up all nodes at the current IF/ELSIF/ELSE level
@@ -169,6 +178,7 @@ class PlantUmlGenerator():
                   stateNodes.pop()
                   
                 # Update the head node's sequence number to avoid overwrite issues.
+                # TODO: Update sequence# at the method level
                 stateNodes[-1].setSeqNum(tempSeqNum)
                   
               except:
@@ -202,22 +212,37 @@ class PlantUmlGenerator():
                   eMsg = f"[Line {i}] ERROR: Failed to parse Change(Inner|Outer)State() Call.\nRETURNING EARLY...\n"
                   return printUmlException(umlString, eMsg)
             
-            # TODO: Search for Enumeration state changes here   
-            elif Match := re.search(self.ENUM_STATE_SWITCH_RE, line):
-              pass
+            # # TODO: Search for Enumeration state changes here   
+            # elif Match := re.search(self.ENUM_STATE_SWITCH_RE, line):
+            #   pass
             
-            # TODO: Search for Integer State change
-            elif Match := re.search("^\s"+caseVar+"\s*:=\s*(\w+)\w*;", line):
-              pass  
-                     
-            # TODO: Search for any calling method/FB
-            # elif Match := re.search("^\s*([\w\.]+)\(.*\)\s*;", line):
-            elif Match := re.search("^\s*([\w\.]+\(.*\))\s*;", line):
-              # TODO: Clean up the parsing of this call?
-              # filteredMatch = Match.group(1) + "()"
-              # print(f">>\n>>\n>>\n{Match.group(1)}\n>>\n>>\n>>\n")
+            # # TODO: Search for Integer State change
+            # elif Match := re.search("^\s"+caseVar+"\s*:=\s*(\w+)\w*;", line):
+            #   pass  
+            
+            
+            # Search for any fbEventHandler Calls for napID specific parsing
+            elif Match := re.search("^\s*fbEventHandler\((.*E_Event\.(\w*|).*)\)\s*;\s*$", line):
               try:
-                newNode = StateNode(lastNode=stateNodes[-1], parentState=subState, name=Match.group(1))
+                newName = f"fbEventHandler({Match.group(2)})"
+                newNode = StateNode(lastNode=stateNodes[-1], parentState=subState, name=newName)
+                umlString += self.umlDeclareNamedNode(newNode)
+                if newNode.getParentNode() == None:
+                  umlString +=  makeBranchStringConditional("[*]", newNode.getId(), "START")
+                else:
+                  branchString += self.umlWriteTransition(newNode.getParentNode(), newNode, newNode.getParentNode().getCondition())
+                stateNodes.append(newNode)
+              except:    
+                traceback.print_exc()      
+                eMsg = f"[Line {i}] ERROR: Failed to parse call to fbEventHandler().\nReturning Early..."
+                printUmlException(umlString, eMsg)
+              
+            # Search for any calling method/FB
+            elif Match := re.search("^\s*([\w\.]+)\(.*\)\s*;", line):
+              filteredMatch = Match.group(1) + "()"
+              try:
+                # newNode = StateNode(lastNode=stateNodes[-1], parentState=subState, name=Match.group(1))
+                newNode = StateNode(lastNode=stateNodes[-1], parentState=subState, name=filteredMatch)
                 umlString += self.umlDeclareNamedNode(newNode)
                 if newNode.getParentNode() == None:
                   umlString +=  makeBranchStringConditional("[*]", newNode.getId(), "START")
@@ -230,21 +255,37 @@ class PlantUmlGenerator():
                 printUmlException(umlString, eMsg)
             
             # Check for commented code in all cases
-            # if Match := re.search(self.CALL_COMMENT_RE, line):
-            #   try:
-            #     newNode = StateNode(lastNode=stateNodes[-1], parentState=subState, name=Match.group(1))
-            #     umlString += self.umlDeclareNamedNode(newNode)
-            #     if newNode.getParentNode() == None:
-            #       umlString +=  makeBranchStringConditional("[*]", newNode.getId(), "START")
-            #     else:
-            #       branchString += self.umlWriteTransition(newNode.getParentNode(), newNode, newNode.getParentNode().getCondition())
-            #     stateNodes.append(newNode)
-            #   except:    
-            #     traceback.print_exc()      
-            #     eMsg = f"[Line {i}] ERROR: Failed to parse '<<<{Match.groups(1)}>>>' Commented Code.\nReturning Early..."
-            #     printUmlException(umlString, eMsg)
-      
-
+            elif Match := re.search(self.CALL_COMMENT_RE, line):
+              try:
+                newNode = StateNode(lastNode=stateNodes[-1], parentState=subState, name=Match.group(1))
+                umlString += self.umlDeclareNamedNode(newNode)
+                if newNode.getParentNode() == None:
+                  umlString +=  makeBranchStringConditional("[*]", newNode.getId(), "START")
+                else:
+                  branchString += self.umlWriteTransition(newNode.getParentNode(), newNode, newNode.getParentNode().getCondition())
+                stateNodes.append(newNode)
+              except:    
+                traceback.print_exc()      
+                eMsg = f"[Line {i}] ERROR: Failed to parse '<<<{Match.groups(1)}>>>' Commented Code.\nReturning Early..."
+                printUmlException(umlString, eMsg)
+                
+            # Check for bError being flagged
+            elif Match := re.search("(bError\s*:=\s*TRUE)", line):
+              try:
+                # newName = "ERROR!"
+                # newNode = StateNode(lastNode=stateNodes[-1], parentState=subState, name=newName)
+                # umlString += self.umlDeclareNamedNode(newNode, error=True)
+                # umlString += self.umlWriteTransition(newNode.getParentNode(), newNode, newNode.getParentNode().getCondition())
+                # umlString += makeBranchStringConditional(newNode.getId(), '[*]', 'bError:=TRUE')
+                branchString += makeBranchStringConditional(stateNodes[-1].getId(), errorExit, stateNodes[-1].getParentNode().getCondition())
+                # branchString += makeBranchStringConditional(errorExit, '[*]', 'bError:=TRUE')
+                # Update the previous sequence number, we do not need to save the Error state to the stack
+                # TODO: Update sequence# at the method level
+                stateNodes[-1].setSeqNum(newNode.getSeqNum())
+              except:
+                traceback.print_exc()
+                eMsg = f"[Line {i}] ERROR: Failed to parse bError line: \n\t{Match.groups(0)}\nReturning Early..."
+                printUmlException(umlString, eMsg)
       
     def convertCaseToUML(self, parsedCaseCode, caseVar):
       """
@@ -311,7 +352,7 @@ class PlantUmlGenerator():
                     GenState = UMLGenerationState.FIND_STATE_END
                     if len(subStates) == 1: # Redundant check...
                         umlString += getTabs(len(caseStates),0) + f"[*] --> {subStates[-1]} : START\n"
-                        umlString += getTabs(len(caseStates),0) + f"state {subStates[-1]}" + "{\n"
+                        umlString += getTabs(len(caseStates),0) + f"state {subStates[-1]} " + GLOBALS_["SubStateColourCode"] + " {\n"
                     else:
                       eMsg = f"[Line {i}] ERROR: more than 1 substate in first substate.\nlen(subState)={len(subStates)}.\nRETURNING EARLY...\n"
                       return printUmlException(umlString, eMsg)
@@ -334,7 +375,7 @@ class PlantUmlGenerator():
                 stateStart = stateEnd+1 # previous state end is the next states start
                 subStates.append(nextState)
                 print(f"[Line {i}]\t\t\t{subStates[-1]}")
-                umlString += getTabs(len(caseStates),0) + f"state {subStates[-1]}" + "{\n"
+                umlString += getTabs(len(caseStates),0) + f"state {subStates[-1]} " + GLOBALS_["SubStateColourCode"] + " {\n"
                 
               # TODO: find 'default' ELSE statements here:
                 
@@ -359,8 +400,8 @@ class PlantUmlGenerator():
                     eMsg = f"[Line {i}] ERROR: Found END_CASE with len(caseStates) != 1.\nReturning Early..."
                     return printUmlException(umlString, eMsg)
                   
-                  
             except:    
+              traceback.print_exc()
               eMsg = f"[Line {i}] ERROR: Failed to FIND_STATE_END.\nReturning Early..."
               return printUmlException(umlString, eMsg)   
             

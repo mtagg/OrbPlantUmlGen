@@ -1,0 +1,249 @@
+@startuml State Diagram
+
+!theme plain
+'skin rose
+'left to right direction
+hide empty description
+'!theme reddress-lightgreen
+title FB_StepperHoming State Diagram
+
+
+
+state FB_StepperHoming{
+
+state eInnerState #84b1f5 {
+	[*] --> eInnerState_Idle : START
+	state eInnerState_Idle #lightblue {
+state "ERROR" as eInnerState_Idle_ERROR <<exitPoint>> #ff3333
+	state eInnerState_Idle_Node_0 <<choice>>
+	[*] ---> eInnerState_Idle_Node_0 : START
+		state eInnerState_Idle_Node_1 <<choice>>
+	eInnerState_Idle_Node_1 ---> [*] : (HomingNeeded)
+	}
+	state eInnerState_CheckIfEnabled #lightblue {
+state "ERROR" as eInnerState_CheckIfEnabled_ERROR <<exitPoint>> #ff3333
+	}
+	state eInnerState_ResetAxis1 #lightblue {
+state "ERROR" as eInnerState_ResetAxis1_ERROR <<exitPoint>> #ff3333
+	state "fbReset()" as eInnerState_ResetAxis1_Node_0 
+	[*] ---> eInnerState_ResetAxis1_Node_0 : START
+	eInnerState_ResetAxis1_Node_0 ---> [*] : None
+	}
+	state eInnerState_ResetAxis2 #lightblue {
+state "ERROR" as eInnerState_ResetAxis2_ERROR <<exitPoint>> #ff3333
+	state eInnerState_ResetAxis2_Node_0 <<choice>>
+	[*] ---> eInnerState_ResetAxis2_Node_0 : START
+	state "fbReset()" as eInnerState_ResetAxis2_Node_1 
+		state eInnerState_ResetAxis2_Node_2 <<choice>>
+	eInnerState_ResetAxis2_Node_2 ---> [*] : (bEnabledBeforeHoming)
+	eInnerState_ResetAxis2_Node_2 ---> [*] : (NOT (bEnabledBeforeHoming))
+	state eInnerState_ResetAxis2_Node_3 <<choice>>
+	state "fbEventHandler()" as eInnerState_ResetAxis2_Node_4 
+		state eInnerState_ResetAxis2_Node_5 <<choice>>
+		state "fbEventHandler(RESET_NOT_DONE_IN_ALLOTED_TIME)" as eInnerState_ResetAxis2_Node_6 
+	}
+	state eInnerState_EnableAxis1 #lightblue {
+state "ERROR" as eInnerState_EnableAxis1_ERROR <<exitPoint>> #ff3333
+	state "fbPower()" as eInnerState_EnableAxis1_Node_0 
+	[*] ---> eInnerState_EnableAxis1_Node_0 : START
+	eInnerState_EnableAxis1_Node_0 ---> [*] : None
+	}
+	state eInnerState_EnableAxis2 #lightblue {
+state "ERROR" as eInnerState_EnableAxis2_ERROR <<exitPoint>> #ff3333
+	state eInnerState_EnableAxis2_Node_0 <<choice>>
+	[*] ---> eInnerState_EnableAxis2_Node_0 : START
+	state "fbEventHandler()" as eInnerState_EnableAxis2_Node_1 
+	state eInnerState_EnableAxis2_Node_2 <<choice>>
+	state "fbReset()" as eInnerState_EnableAxis2_Node_3 
+	eInnerState_EnableAxis2_Node_3 ---> [*] : (fbPower.Status = TRUE)
+		state eInnerState_EnableAxis2_Node_4 <<choice>>
+		state "fbEventHandler(ENABLE_NOT_DONE_IN_ALLOTED_TIME)" as eInnerState_EnableAxis2_Node_5 
+	}
+	state eInnerState_HomeSensorCheck #lightblue {
+state "ERROR" as eInnerState_HomeSensorCheck_ERROR <<exitPoint>> #ff3333
+	state eInnerState_HomeSensorCheck_Node_0 <<choice>>
+	[*] ---> eInnerState_HomeSensorCheck_Node_0 : START
+	eInnerState_HomeSensorCheck_Node_0 ---> [*] : (bOutsideHome)
+	eInnerState_HomeSensorCheck_Node_0 ---> [*] : (NOT (bOutsideHome))
+	}
+	state eInnerState_OutwardMotion #lightblue {
+state "ERROR" as eInnerState_OutwardMotion_ERROR <<exitPoint>> #ff3333
+	state eInnerState_OutwardMotion_Node_0 <<choice>>
+	[*] ---> eInnerState_OutwardMotion_Node_0 : START
+	state "fbEventHandler(UNABLE_TO_FIND_HOME)" as eInnerState_OutwardMotion_Node_1 
+	state "fbJog()" as eInnerState_OutwardMotion_Node_2 
+		state eInnerState_OutwardMotion_Node_3 <<choice>>
+		state "fbEventHandler()" as eInnerState_OutwardMotion_Node_4 
+		state eInnerState_OutwardMotion_Node_5 <<choice>>
+		state "fbEventHandler(MC2_JOG_COMMAND_ABORTED)" as eInnerState_OutwardMotion_Node_6 
+			state eInnerState_OutwardMotion_Node_7 <<choice>>
+			state "fbEventHandler(TASK_WARNING)" as eInnerState_OutwardMotion_Node_8 
+			state eInnerState_OutwardMotion_Node_9 <<choice>>
+			state "fbJog()" as eInnerState_OutwardMotion_Node_10 
+	eInnerState_OutwardMotion_Node_10 ---> [*] : (NOT bOutsideHome)
+	}
+	state eInnerState_InwardMotion #lightblue {
+state "ERROR" as eInnerState_InwardMotion_ERROR <<exitPoint>> #ff3333
+	state eInnerState_InwardMotion_Node_0 <<choice>>
+	[*] ---> eInnerState_InwardMotion_Node_0 : START
+	state "fbEventHandler(UNABLE_TO_LEAVE_HOME)" as eInnerState_InwardMotion_Node_1 
+	state "fbJog()" as eInnerState_InwardMotion_Node_2 
+		state eInnerState_InwardMotion_Node_3 <<choice>>
+		state "fbEventHandler()" as eInnerState_InwardMotion_Node_4 
+		state eInnerState_InwardMotion_Node_5 <<choice>>
+		state "fbEventHandler(MC2_JOG_COMMAND_ABORTED)" as eInnerState_InwardMotion_Node_6 
+			state eInnerState_InwardMotion_Node_7 <<choice>>
+			state "fbEventHandler(TASK_WARNING)" as eInnerState_InwardMotion_Node_8 
+			state eInnerState_InwardMotion_Node_9 <<choice>>
+			state "fbJog()" as eInnerState_InwardMotion_Node_10 
+	eInnerState_InwardMotion_Node_10 ---> [*] : (bOutsideHome)
+	}
+	state eInnerState_OutwardCreep #lightblue {
+state "ERROR" as eInnerState_OutwardCreep_ERROR <<exitPoint>> #ff3333
+	state eInnerState_OutwardCreep_Node_0 <<choice>>
+	[*] ---> eInnerState_OutwardCreep_Node_0 : START
+	state "fbEventHandler(UNABLE_TO_FIND_HOME)" as eInnerState_OutwardCreep_Node_1 
+		state eInnerState_OutwardCreep_Node_2 <<choice>>
+		state "fbJog()" as eInnerState_OutwardCreep_Node_3 
+			state eInnerState_OutwardCreep_Node_4 <<choice>>
+			state "fbEventHandler()" as eInnerState_OutwardCreep_Node_5 
+			state eInnerState_OutwardCreep_Node_6 <<choice>>
+			state "fbEventHandler(MC2_JOG_COMMAND_ABORTED)" as eInnerState_OutwardCreep_Node_7 
+				state eInnerState_OutwardCreep_Node_8 <<choice>>
+				state "fbEventHandler(TASK_WARNING)" as eInnerState_OutwardCreep_Node_9 
+		state "fbJog()" as eInnerState_OutwardCreep_Node_10 
+	eInnerState_OutwardCreep_Node_10 ---> [*] : (NOT (bOutsideHome))
+	}
+	state eInnerState_WaitingForHalt #lightblue {
+state "ERROR" as eInnerState_WaitingForHalt_ERROR <<exitPoint>> #ff3333
+	state "fbHalt()" as eInnerState_WaitingForHalt_Node_0 
+	[*] ---> eInnerState_WaitingForHalt_Node_0 : START
+		state eInnerState_WaitingForHalt_Node_1 <<choice>>
+		state "fbHalt()" as eInnerState_WaitingForHalt_Node_2 
+	eInnerState_WaitingForHalt_Node_2 ---> [*] : (fbHalt.Done)
+		state eInnerState_WaitingForHalt_Node_3 <<choice>>
+		state "fbEventHandler()" as eInnerState_WaitingForHalt_Node_4 
+	}
+	state eInnerState_GettingCurrentPos #lightblue {
+state "ERROR" as eInnerState_GettingCurrentPos_ERROR <<exitPoint>> #ff3333
+	}
+	state eInnerState_SettingHomePos #lightblue {
+state "ERROR" as eInnerState_SettingHomePos_ERROR <<exitPoint>> #ff3333
+	state "fbHome()" as eInnerState_SettingHomePos_Node_0 
+	[*] ---> eInnerState_SettingHomePos_Node_0 : START
+		state eInnerState_SettingHomePos_Node_1 <<choice>>
+		state "fbEventHandler()" as eInnerState_SettingHomePos_Node_2 
+		state eInnerState_SettingHomePos_Node_3 <<choice>>
+		state "fbEventHandler(MC2_HOME_COMMAND_ABORTED)" as eInnerState_SettingHomePos_Node_4 
+		state eInnerState_SettingHomePos_Node_5 <<choice>>
+		state "fbHome()" as eInnerState_SettingHomePos_Node_6 
+			state eInnerState_SettingHomePos_Node_7 <<choice>>
+	eInnerState_SettingHomePos_Node_7 ---> [*] : (bEnabledBeforeHoming)
+	eInnerState_SettingHomePos_Node_7 ---> [*] : (NOT (bEnabledBeforeHoming))
+	}
+	state eInnerState_DisableAxis #lightblue {
+state "ERROR" as eInnerState_DisableAxis_ERROR <<exitPoint>> #ff3333
+	state "fbPower()" as eInnerState_DisableAxis_Node_0 
+	[*] ---> eInnerState_DisableAxis_Node_0 : START
+		state eInnerState_DisableAxis_Node_1 <<choice>>
+		state "fbEventHandler()" as eInnerState_DisableAxis_Node_2 
+		state eInnerState_DisableAxis_Node_3 <<choice>>
+	eInnerState_DisableAxis_Node_3 ---> [*] : (fbPower.Status = FALSE)
+	}
+	state eInnerState_WrapUp #lightblue {
+state "ERROR" as eInnerState_WrapUp_ERROR <<exitPoint>> #ff3333
+	}
+	}
+	eInnerState_Idle_Node_0 ---> eInnerState_Idle_Node_1 : (bStart)
+	eInnerState_Idle ---> eInnerState_CheckIfEnabled : (HomingNeeded)
+	eInnerState_ResetAxis1 ---> eInnerState_ResetAxis2 : None
+	eInnerState_ResetAxis2_Node_0 ---> eInnerState_ResetAxis2_Node_1 : (fbReset.Done)
+	eInnerState_ResetAxis2_Node_1 ---> eInnerState_ResetAxis2_Node_2 : (fbReset.Done)
+	eInnerState_ResetAxis2 ---> eInnerState_HomeSensorCheck : (bEnabledBeforeHoming)
+	eInnerState_ResetAxis2 ---> eInnerState_EnableAxis1 : (NOT (bEnabledBeforeHoming))
+	eInnerState_ResetAxis2_Node_1 ---> eInnerState_ResetAxis2_Node_3 : (NOT (fbReset.Done))
+	eInnerState_ResetAxis2_Node_3 ---> eInnerState_ResetAxis2_Node_4 : (fbReset.Error)
+	eInnerState_ResetAxis2_Node_4 ---> eInnerState_ResetAxis2_ERROR : (fbReset.Error)
+	eInnerState_ResetAxis2_Node_3 ---> eInnerState_ResetAxis2_Node_5 : (NOT (fbReset.Error))
+	eInnerState_ResetAxis2_Node_5 ---> eInnerState_ResetAxis2_Node_6 : (nPLC_Cycles > SystemConfig.nSTEPPER_MAX_CYCLES_TO_RESET)
+	eInnerState_ResetAxis2_Node_6 ---> eInnerState_ResetAxis2_ERROR : (nPLC_Cycles > SystemConfig.nSTEPPER_MAX_CYCLES_TO_RESET)
+	eInnerState_EnableAxis1 ---> eInnerState_EnableAxis2 : None
+	eInnerState_EnableAxis2_Node_0 ---> eInnerState_EnableAxis2_Node_1 : (fbPower.Error)
+	eInnerState_EnableAxis2_Node_1 ---> eInnerState_EnableAxis2_ERROR : (fbPower.Error)
+	eInnerState_EnableAxis2_Node_1 ---> eInnerState_EnableAxis2_Node_2 : (NOT (fbPower.Error))
+	eInnerState_EnableAxis2_Node_2 ---> eInnerState_EnableAxis2_Node_3 : (fbPower.Status = TRUE)
+	eInnerState_EnableAxis2 ---> eInnerState_HomeSensorCheck : (fbPower.Status = TRUE)
+	eInnerState_EnableAxis2_Node_2 ---> eInnerState_EnableAxis2_Node_4 : (NOT (fbPower.Status = TRUE))
+	eInnerState_EnableAxis2_Node_4 ---> eInnerState_EnableAxis2_Node_5 : (nPLC_Cycles > SystemConfig.nSTEPPER_MAX_CYCLES_TO_ENABLE)
+	eInnerState_EnableAxis2_Node_5 ---> eInnerState_EnableAxis2_ERROR : (nPLC_Cycles > SystemConfig.nSTEPPER_MAX_CYCLES_TO_ENABLE)
+	eInnerState_HomeSensorCheck ---> eInnerState_OutwardMotion : (bOutsideHome)
+	eInnerState_HomeSensorCheck ---> eInnerState_InwardMotion : (NOT (bOutsideHome))
+	eInnerState_OutwardMotion_Node_0 ---> eInnerState_OutwardMotion_Node_1 : (ABS(fRelativePosition - Beta) > (SystemConfig.fSTEPPER_MAX_INWARDS_POSITION + 2))
+	eInnerState_OutwardMotion_Node_1 ---> eInnerState_OutwardMotion_ERROR : (ABS(fRelativePosition - Beta) > (SystemConfig.fSTEPPER_MAX_INWARDS_POSITION + 2))
+	eInnerState_OutwardMotion_Node_0 ---> eInnerState_OutwardMotion_Node_2 : (NOT (ABS(fRelativePosition - Beta) > (SystemConfig.fSTEPPER_MAX_INWARDS_POSITION + 2)))
+	eInnerState_OutwardMotion_Node_2 ---> eInnerState_OutwardMotion_Node_3 : (NOT (ABS(fRelativePosition - Beta) > (SystemConfig.fSTEPPER_MAX_INWARDS_POSITION + 2)))
+	eInnerState_OutwardMotion_Node_3 ---> eInnerState_OutwardMotion_Node_4 : (fbJog.Error)
+	eInnerState_OutwardMotion_Node_4 ---> eInnerState_OutwardMotion_ERROR : (fbJog.Error)
+	eInnerState_OutwardMotion_Node_4 ---> eInnerState_OutwardMotion_Node_5 : (NOT (fbJog.Error))
+	eInnerState_OutwardMotion_Node_5 ---> eInnerState_OutwardMotion_Node_6 : (fbJog.CommandAborted)
+	eInnerState_OutwardMotion_Node_6 ---> eInnerState_OutwardMotion_ERROR : (fbJog.CommandAborted)
+	eInnerState_OutwardMotion_Node_5 ---> eInnerState_OutwardMotion_Node_7 : (NOT (fbJog.CommandAborted))
+	eInnerState_OutwardMotion_Node_7 ---> eInnerState_OutwardMotion_Node_8 : (fbJog.Done)
+	eInnerState_OutwardMotion_Node_5 ---> eInnerState_OutwardMotion_Node_9 : (NOT (fbJog.CommandAborted))
+	eInnerState_OutwardMotion_Node_9 ---> eInnerState_OutwardMotion_Node_10 : (NOT bOutsideHome)
+	eInnerState_OutwardMotion ---> eInnerState_InwardMotion : (NOT bOutsideHome)
+	eInnerState_InwardMotion_Node_0 ---> eInnerState_InwardMotion_Node_1 : (ABS(fRelativePosition - Beta) > (SystemConfig.fSTEPPER_HOME_ZONE_WIDTH + 2))
+	eInnerState_InwardMotion_Node_1 ---> eInnerState_InwardMotion_ERROR : (ABS(fRelativePosition - Beta) > (SystemConfig.fSTEPPER_HOME_ZONE_WIDTH + 2))
+	eInnerState_InwardMotion_Node_0 ---> eInnerState_InwardMotion_Node_2 : (NOT (ABS(fRelativePosition - Beta) > (SystemConfig.fSTEPPER_HOME_ZONE_WIDTH + 2)))
+	eInnerState_InwardMotion_Node_2 ---> eInnerState_InwardMotion_Node_3 : (NOT (ABS(fRelativePosition - Beta) > (SystemConfig.fSTEPPER_HOME_ZONE_WIDTH + 2)))
+	eInnerState_InwardMotion_Node_3 ---> eInnerState_InwardMotion_Node_4 : (fbJog.Error)
+	eInnerState_InwardMotion_Node_4 ---> eInnerState_InwardMotion_ERROR : (fbJog.Error)
+	eInnerState_InwardMotion_Node_4 ---> eInnerState_InwardMotion_Node_5 : (NOT (fbJog.Error))
+	eInnerState_InwardMotion_Node_5 ---> eInnerState_InwardMotion_Node_6 : (fbJog.CommandAborted)
+	eInnerState_InwardMotion_Node_6 ---> eInnerState_InwardMotion_ERROR : (fbJog.CommandAborted)
+	eInnerState_InwardMotion_Node_5 ---> eInnerState_InwardMotion_Node_7 : (NOT (fbJog.CommandAborted))
+	eInnerState_InwardMotion_Node_7 ---> eInnerState_InwardMotion_Node_8 : (fbJog.Done)
+	eInnerState_InwardMotion_Node_5 ---> eInnerState_InwardMotion_Node_9 : (NOT (fbJog.CommandAborted))
+	eInnerState_InwardMotion_Node_9 ---> eInnerState_InwardMotion_Node_10 : (bOutsideHome)
+	eInnerState_InwardMotion ---> eInnerState_OutwardCreep : (bOutsideHome)
+	eInnerState_OutwardCreep_Node_0 ---> eInnerState_OutwardCreep_Node_1 : (ABS(fRelativePosition - Beta) > (SystemConfig.fSTEPPER_HOME_ZONE_WIDTH))
+	eInnerState_OutwardCreep_Node_1 ---> eInnerState_OutwardCreep_ERROR : (ABS(fRelativePosition - Beta) > (SystemConfig.fSTEPPER_HOME_ZONE_WIDTH))
+	eInnerState_OutwardCreep_Node_0 ---> eInnerState_OutwardCreep_Node_2 : (NOT (ABS(fRelativePosition - Beta) > (SystemConfig.fSTEPPER_HOME_ZONE_WIDTH)))
+	eInnerState_OutwardCreep_Node_2 ---> eInnerState_OutwardCreep_Node_3 : (bOutsideHome)
+	eInnerState_OutwardCreep_Node_3 ---> eInnerState_OutwardCreep_Node_4 : (bOutsideHome)
+	eInnerState_OutwardCreep_Node_4 ---> eInnerState_OutwardCreep_Node_5 : (fbJog.Error)
+	eInnerState_OutwardCreep_Node_5 ---> eInnerState_OutwardCreep_ERROR : (fbJog.Error)
+	eInnerState_OutwardCreep_Node_5 ---> eInnerState_OutwardCreep_Node_6 : (NOT (fbJog.Error))
+	eInnerState_OutwardCreep_Node_6 ---> eInnerState_OutwardCreep_Node_7 : (fbJog.CommandAborted)
+	eInnerState_OutwardCreep_Node_7 ---> eInnerState_OutwardCreep_ERROR : (fbJog.CommandAborted)
+	eInnerState_OutwardCreep_Node_6 ---> eInnerState_OutwardCreep_Node_8 : (NOT (fbJog.CommandAborted))
+	eInnerState_OutwardCreep_Node_8 ---> eInnerState_OutwardCreep_Node_9 : (fbJog.Done)
+	eInnerState_OutwardCreep_Node_2 ---> eInnerState_OutwardCreep_Node_10 : (NOT (bOutsideHome))
+	eInnerState_OutwardCreep ---> eInnerState_WaitingForHalt : (NOT (bOutsideHome))
+	eInnerState_WaitingForHalt_Node_0 ---> eInnerState_WaitingForHalt_Node_1
+	eInnerState_WaitingForHalt_Node_1 ---> eInnerState_WaitingForHalt_Node_2 : (fbHalt.Done)
+	eInnerState_WaitingForHalt ---> eInnerState_GettingCurrentPos : (fbHalt.Done)
+	eInnerState_WaitingForHalt_Node_2 ---> eInnerState_WaitingForHalt_Node_3 : (NOT (fbHalt.Done))
+	eInnerState_WaitingForHalt_Node_3 ---> eInnerState_WaitingForHalt_Node_4 : (fbHalt.Error)
+	eInnerState_WaitingForHalt_Node_4 ---> eInnerState_WaitingForHalt_ERROR : (fbHalt.Error)
+	eInnerState_SettingHomePos_Node_0 ---> eInnerState_SettingHomePos_Node_1
+	eInnerState_SettingHomePos_Node_1 ---> eInnerState_SettingHomePos_Node_2 : (fbHome.Error)
+	eInnerState_SettingHomePos_Node_2 ---> eInnerState_SettingHomePos_ERROR : (fbHome.Error)
+	eInnerState_SettingHomePos_Node_2 ---> eInnerState_SettingHomePos_Node_3 : (NOT (fbHome.Error))
+	eInnerState_SettingHomePos_Node_3 ---> eInnerState_SettingHomePos_Node_4 : (fbHome.CommandAborted)
+	eInnerState_SettingHomePos_Node_4 ---> eInnerState_SettingHomePos_ERROR : (fbHome.CommandAborted)
+	eInnerState_SettingHomePos_Node_4 ---> eInnerState_SettingHomePos_Node_5 : (NOT (fbHome.CommandAborted))
+	eInnerState_SettingHomePos_Node_5 ---> eInnerState_SettingHomePos_Node_6 : (fbHome.Done)
+	eInnerState_SettingHomePos_Node_6 ---> eInnerState_SettingHomePos_Node_7 : (fbHome.Done)
+	eInnerState_SettingHomePos ---> eInnerState_WrapUp : (bEnabledBeforeHoming)
+	eInnerState_SettingHomePos ---> eInnerState_DisableAxis : (NOT (bEnabledBeforeHoming))
+	eInnerState_DisableAxis_Node_0 ---> eInnerState_DisableAxis_Node_1
+	eInnerState_DisableAxis_Node_1 ---> eInnerState_DisableAxis_Node_2 : (fbPower.Error)
+	eInnerState_DisableAxis_Node_2 ---> eInnerState_DisableAxis_ERROR : (fbPower.Error)
+	eInnerState_DisableAxis_Node_2 ---> eInnerState_DisableAxis_Node_3 : (NOT (fbPower.Error))
+	eInnerState_DisableAxis ---> eInnerState_WrapUp : (fbPower.Status = FALSE)
+
+
+}
+
+@enduml

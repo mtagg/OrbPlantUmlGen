@@ -72,7 +72,7 @@ def getElsifCondition(lines, lineIndex):
     
 def makeBranchStringConditional(srcState, destState, condition):
   # print(f"\t{srcState} --> {destState} : {condition}\n")
-  return f"\t{srcState} --> {destState} : {condition}\n"
+  return f"\t{srcState} ---> {destState} : {condition}\n"
 
 def makeBranchString(srcState, destState):
-  return f"\t{srcState} --> {destState}\n"   
+  return f"\t{srcState} ---> {destState}\n"   

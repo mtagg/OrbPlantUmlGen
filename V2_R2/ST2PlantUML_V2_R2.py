@@ -96,7 +96,7 @@ def parseTcPouFile(absFilePath, Name, outputDirAbsolute):
                                     implementationString += removeComments(line).strip() + "\n"  
                                 print(f"[Line {i}] Found OuterLoopSM() for : {pouName}")     
                                 ParseEnum = ParsingStates.PARSE_METHOD  
-                        elif "<Declaration><![CDATA[METHOD OuterLopSM" in line:
+                        elif "<Declaration><![CDATA[METHOD PROTECTED OuterLopSM" in line:
                             methods.append("OuterLoopSM")
                             implementationString += f"\n>>\n>>Start of Method : {methods[-1]}\n>>\n>>\n" 
                             outerMethodFound = True
