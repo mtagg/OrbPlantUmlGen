@@ -1,0 +1,102 @@
+	>>
+	>>Start of Method : InnerLoopSM
+	>>
+	>>
+	fbMotorSR();
+	fbMotorSY();
+	fbMotorE();
+	CASE CyclicInnerCase(TO_STRING(eInnerState)) OF
+		E_ArmMotorsStates.Idle:
+			IF bEnable THEN
+				bEnable := FALSE;
+				ChangeInnerState(E_ArmMotorsStates.EnableMotors1);
+			ELSIF bDisable THEN
+				bDisable := FALSE;
+				ChangeInnerState(E_ArmMotorsStates.DisableMotors1);
+			END_IF
+		E_ArmMotorsStates.EnableMotors1:
+			IF fbMotorSR.Ready AND fbMotorSY.Ready AND fbMotorE.Ready THEN
+				fbMotorSR.bEnable := TRUE;
+				fbMotorSY.bEnable := TRUE;
+				fbMotorE.bEnable := TRUE;
+				ChangeInnerState(E_ArmMotorsStates.EnableMotors2);
+			ELSE
+				sErrorDetails := CONCAT4('SR,SY,E Ready = ',BOOL_TO_STRING(fbMotorSR.Ready),',',BOOL_TO_STRING(fbMotorSY.Ready));
+				sErrorDetails := CONCAT3(sErrorDetails,',',BOOL_TO_STRING(fbMotorE.Ready));
+				fbEventHandler(eNapID:=E_Event.SYSTEM_IN_UNEXPECTED_STATE,sMessage:=sErrorDetails);
+				bError := TRUE;	
+			END_IF
+		E_ArmMotorsStates.EnableMotors2:
+			IF fbMotorSR.Ready AND fbMotorSY.Ready AND fbMotorE.Ready THEN
+				IF THIS^.Enabled THEN
+					ChangeInnerState(E_ArmMotorsStates.Idle);
+				ELSE
+					sErrorDetails := CONCAT4('SR,SY,E Enabled = ',BOOL_TO_STRING(fbMotorSR.Enabled),',',BOOL_TO_STRING(fbMotorSY.Enabled));
+					sErrorDetails := CONCAT3(sErrorDetails,',',BOOL_TO_STRING(fbMotorE.Enabled));
+					fbEventHandler(eNapID:=E_Event.TASK_FAILED,sMessage:=sErrorDetails);
+					bError := TRUE;	
+				END_IF
+			ELSE
+				IF fbMotorSR.Failed THEN
+					fbEventHandler(eNapID:=E_Event.TASK_FAILED,sTrace:=fbMotorSR.EventTrace);
+					fbMotorSR.ErrorAck:=TRUE;
+					bError := TRUE;
+				END_IF
+				IF fbMotorSY.Failed THEN
+					fbEventHandler(eNapID:=E_Event.TASK_FAILED,sTrace:=fbMotorSY.EventTrace);
+					fbMotorSY.ErrorAck:=TRUE;
+					bError := TRUE;
+				END_IF
+				IF fbMotorE.Failed THEN
+					fbEventHandler(eNapID:=E_Event.TASK_FAILED,sTrace:=fbMotorE.EventTrace);
+					fbMotorE.ErrorAck:=TRUE;
+					bError := TRUE;
+				END_IF
+			END_IF
+		E_ArmMotorsStates.DisableMotors1:
+			IF fbMotorSR.Ready AND fbMotorSY.Ready AND fbMotorE.Ready THEN
+				fbMotorSR.bDisable := TRUE;
+				fbMotorSY.bDisable := TRUE;
+				fbMotorE.bDisable := TRUE;
+				ChangeInnerState(E_ArmMotorsStates.DisableMotors2);
+			ELSE
+				sErrorDetails := CONCAT4('SR,SY,E Ready = ',BOOL_TO_STRING(fbMotorSR.Ready),',',BOOL_TO_STRING(fbMotorSY.Ready));
+				sErrorDetails := CONCAT3(sErrorDetails,',',BOOL_TO_STRING(fbMotorE.Ready));
+				fbEventHandler(eNapID:=E_Event.SYSTEM_IN_UNEXPECTED_STATE,sMessage:=sErrorDetails);
+				bError := TRUE;	
+			END_IF
+		E_ArmMotorsStates.DisableMotors2:
+			IF fbMotorSR.Ready AND fbMotorSY.Ready AND fbMotorE.Ready THEN
+				IF THIS^.Disabled THEN
+					ChangeInnerState(E_ArmMotorsStates.Idle);
+				ELSE
+					sErrorDetails := CONCAT4('SR,SY,E Disabled = ',BOOL_TO_STRING(fbMotorSR.Disabled),',',BOOL_TO_STRING(fbMotorSY.Disabled));
+					sErrorDetails := CONCAT3(sErrorDetails,',',BOOL_TO_STRING(fbMotorE.Disabled));
+					fbEventHandler(eNapID:=E_Event.TASK_FAILED,sMessage:=sErrorDetails);
+					bError := TRUE;	
+				END_IF
+			ELSE
+				IF fbMotorSR.Failed THEN
+					fbEventHandler(eNapID:=E_Event.TASK_FAILED,sTrace:=fbMotorSR.EventTrace);
+					fbMotorSR.ErrorAck:=TRUE;
+					bError := TRUE;
+				END_IF
+				IF fbMotorSY.Failed THEN
+					fbEventHandler(eNapID:=E_Event.TASK_FAILED,sTrace:=fbMotorSY.EventTrace);
+					fbMotorSY.ErrorAck:=TRUE;
+					bError := TRUE;
+				END_IF
+				IF fbMotorE.Failed THEN
+					fbEventHandler(eNapID:=E_Event.TASK_FAILED,sTrace:=fbMotorE.EventTrace);
+					fbMotorE.ErrorAck:=TRUE;
+					bError := TRUE;
+				END_IF
+			END_IF
+	END_CASE
+
+
+States found:
+	eInnerState
+Methods Found:
+	InnerLoopSM
+Method-Case Pairs Found:

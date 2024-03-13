@@ -1,0 +1,123 @@
+	>>
+	>>Start of Method : InnerLoopSM
+	>>
+	>>
+	CASE CyclicInnerCase(TO_STRING(eInnerState)) OF
+		E_EncoderStates.Idle:
+			IF bStartCalibration THEN
+				bStartCalibration := FALSE;
+				ChangeInnerState(E_EncoderStates.ResetAxis);
+			ELSIF THIS^.Calibrated THEN
+				IF UpdateAxis() = FALSE THEN
+					bError := TRUE;
+				END_IF			
+			END_IF
+		E_EncoderStates.ResetAxis:
+			fbReset(Axis:=stNC_Axis,Execute:=TRUE);
+			IF fbReset.Done THEN
+				fbReset(Axis:=stNC_Axis,Execute:=FALSE);
+				ChangeInnerState(E_EncoderStates.SetPositiveDirection);
+			ELSIF fbReset.Error THEN
+				fbEventHandler(nBeckhoffID:=fbReset.ErrorID);
+				bError := TRUE;
+			ELSE
+			END_IF
+		E_EncoderStates.SetPositiveDirection:
+			fbWriteBoolParameter(Axis:=stNC_Axis,ParameterNumber:=MC_AxisParameter.AxisEncoderDirectionInverse,Value:=stEncoderParams.bDirectionInverted,Execute:=TRUE);
+			IF fbWriteBoolParameter.Done THEN
+				fbWriteBoolParameter(Axis:=stNC_Axis,Execute:=FALSE); 
+				ChangeInnerState(E_EncoderStates.SetScaleDen);
+			ELSIF fbWriteBoolParameter.Error THEN
+				fbEventHandler(nBeckhoffID:=fbWriteBoolParameter.ErrorID);
+				bError := TRUE;
+			ELSE
+			END_IF
+		E_EncoderStates.SetScaleDen:
+			IF stEncoderParams.fScaleDen > 0.1  THEN
+				fbWriteParameter(Axis:=stNC_Axis,ParameterNumber:=MC_AxisParameter.AxisEncoderScalingDenominator,Value:=stEncoderParams.fScaleDen,Execute:=TRUE);
+				IF fbWriteParameter.Done THEN
+					fbWriteParameter(Axis:=stNC_Axis,Execute:=FALSE); 
+					ChangeInnerState(E_EncoderStates.SetScaleNum);
+				ELSIF fbWriteParameter.Error THEN
+					fbEventHandler(nBeckhoffID:=fbWriteParameter.ErrorID);
+					bError := TRUE;
+				ELSE
+				END_IF
+			ELSE
+				sErrorDetails:=CONCAT('ScaleDenominator too small: ',LREAL_TO_STRING(stEncoderParams.fScaleDen));
+				fbEventHandler(eNapID:=E_Event.INVALID_PARAMETER,sMessage:=sErrorDetails);
+				bError := TRUE;
+			END_IF
+		E_EncoderStates.SetScaleNum:
+			IF stEncoderParams.fScaleNum > 0  THEN
+				fbWriteParameter(Axis:=stNC_Axis,ParameterNumber:=MC_AxisParameter.AxisEncoderScalingNumerator,Value:=stEncoderParams.fScaleNum,Execute:=TRUE);
+				IF fbWriteParameter.Done THEN
+					fbWriteParameter(Axis:=stNC_Axis,Execute:=FALSE); 
+					IF bIsAbsoluteEncoder THEN
+						ChangeInnerState(E_EncoderStates.SetAbsEncoderOffset1);
+					ELSE
+						ChangeInnerState(E_EncoderStates.SetIncEncoderHome);
+					END_IF
+				ELSIF fbWriteParameter.Error THEN
+					fbEventHandler(nBeckhoffID:=fbWriteParameter.ErrorID);
+					bError := TRUE;
+				ELSE
+				END_IF
+			ELSE
+				sErrorDetails:=CONCAT('ScaleNumerator too small: ',LREAL_TO_STRING(stEncoderParams.fScaleNum));
+				fbEventHandler(eNapID:=E_Event.INVALID_PARAMETER,sMessage:=sErrorDetails);
+				bError := TRUE;
+			END_IF
+		E_EncoderStates.SetAbsEncoderOffset1:
+			fbWriteParameter(Axis:=stNC_Axis,ParameterNumber:=MC_AxisParameter.AxisEncoderOffset,Value:=stEncoderParams.fAbsEncOffset,Execute:=TRUE);
+			IF fbWriteParameter.Done THEN
+				fbWriteParameter(Axis:=stNC_Axis,Execute:=FALSE); 
+				ChangeInnerState(E_EncoderStates.SetAbsEncoderOffset2);
+			ELSIF fbWriteParameter.Error THEN
+				fbEventHandler(nBeckhoffID:=fbWriteParameter.ErrorID);
+				bError := TRUE;
+			ELSE
+			END_IF
+		E_EncoderStates.SetAbsEncoderOffset2:
+			fbHome(Axis:=stNC_Axis,HomingMode:=MC_HomingMode.MC_ForceCalibration, Execute:=TRUE);
+			IF fbHome.Done THEN
+				fbHome(Axis:=stNC_Axis,Execute:=FALSE); 
+				ChangeInnerState(E_EncoderStates.VerifyAxis);
+			ELSIF fbHome.Error THEN
+				fbEventHandler(nBeckhoffID:=fbHome.ErrorID);
+				bError := TRUE;
+			ELSE
+			END_IF
+		E_EncoderStates.SetIncEncoderHome:
+			IF bHomePositionOverride THEN
+				fbHome(Axis:=stNC_Axis,Position:=fHomePositionOverride, HomingMode:=MC_HomingMode.MC_Direct, Execute:=TRUE);
+			ELSE
+				fbHome(Axis:=stNC_Axis,Position:=stEncoderParams.fHomePosition, HomingMode:=MC_HomingMode.MC_Direct, Execute:=TRUE);
+			END_IF
+			IF fbHome.Done THEN
+				fbHome(Axis:=stNC_Axis,Execute:=FALSE); 
+				ChangeInnerState(E_EncoderStates.VerifyAxis);
+			ELSIF fbHome.Error THEN
+				fbEventHandler(nBeckhoffID:=fbHome.ErrorID);
+				bError := TRUE;
+			ELSE
+			END_IF
+		E_EncoderStates.VerifyAxis:
+			IF UpdateAxis() = FALSE THEN
+				bError := TRUE;
+			ELSE
+				ChangeInnerState(E_EncoderStates.WrapUpCalibration);
+			END_IF
+		E_EncoderStates.WrapUpCalibration:
+			bForceCalibration := FALSE;
+			bCalibrated := TRUE;
+			dtTimeCalibrated := DateTime.GVL_DATE_TIME;
+			ChangeInnerState(E_EncoderStates.Idle);
+	END_CASE
+
+
+States found:
+	eInnerState
+Methods Found:
+	InnerLoopSM
+Method-Case Pairs Found:

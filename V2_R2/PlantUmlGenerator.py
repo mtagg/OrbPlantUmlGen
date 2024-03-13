@@ -12,7 +12,9 @@ class UMLGenerationState(Enum):
     FIND_FIRST_STATE_START = 1 # finds start of a case^ substate
     FIND_STATE_END = 2 # builds an array, or just skips lines to find next or END_CASE
     PARSE_SUB_STATE = 3 # Calls helper to build UML for found state, then new start == prev end, and finds new end
-    FINISH_CASE = 4 # END_CASE found, parses post-case logic for file
+    PARSE_POST_CASE = 4 # Collect code following a case, until end of method
+    FINISH_CASE = 5 # END_CASE found, parses post-case logic for file
+    
                
 class PlantUmlGenerator():
     
@@ -84,6 +86,7 @@ class PlantUmlGenerator():
             # ... Followed by a block of transitions of states already defined within the block.
             # TODO: future may be okay to add branchString at the time of parsing to umlString
             return umlString, branchString
+          
           elif i >= startLine:
 
             # search for IF statement
@@ -206,6 +209,10 @@ class PlantUmlGenerator():
                     if lastConditionalState != None:
                       umlString += makeBranchStringConditional(lastConditionalState.getId(), '[*]', lastConditionalState.getCondition())
                       branchString += makeBranchStringConditional(srcState,destState, lastConditionalState.getCondition())
+                    else:
+                      # No condition, just a transition
+                      umlString += makeBranchString('[*]', '[*]')
+                      branchString += makeBranchString(srcState, destState)
 
                 except:  
                   traceback.print_exc()    
@@ -315,7 +322,8 @@ class PlantUmlGenerator():
       # caseStatesHash = {}             # Holds the raw state key, found in ST, and unique UML state value for generation
       branchString = ""               # Buffer to store state changes, these are last to append to caseStates[-1] after subStates are all defined
       # stateBranchString = ""          # Tracks branches to case statements via method calls
-
+      preCaseCode = ""
+      postCaseCode = ""
 
       # Loop throught the implementation for each state and build UML 
       print(f"\nParsing for {caseVar}:")
@@ -334,13 +342,32 @@ class PlantUmlGenerator():
               try:
                 if caseVar in line:
                     caseStates.append(caseVar)
+                    # umlString += getTabs(0,0) + f"state \"{preCaseCode}\" as PreCaseCode\n"
+                    # umlString += getTabs(0,0) + f"[*] --> PreCaseCode : START\n"
+                    # umlString += getTabs(0,0) + f"PreCaseCode --> {caseStates[-1]}\n"
                     umlString += getTabs(0,0) + f"state {caseStates[-1]} {GLOBALS_['CaseColourCode']} " + "{\n"        
                     print(f"[Line {i}]\tStarted CASE {caseStates[-1]} OF...")
                     GenState = UMLGenerationState.FIND_FIRST_STATE_START
               except:   
-                eMsg = f"[Line {i}] ERROR: Failed to FIND_CASE_START.\nRETURNING EARLY...\n"
+                eMsg = f"[Line {i}] ERROR: Failed to FIND_CASE_START (StateMachine).\nRETURNING EARLY...\n"
                 return printUmlException(umlString, eMsg)
               
+            # # General Case Start (still depends on parser finding a state variable)
+            # elif (Match := re.search(self.NEW_STANDARD_CASE_RE,line)):
+            #   try:
+            #     if caseVar in line:
+            #         caseStates.append(caseVar)
+            #         #umlString += getTabs(0,0) + f"state \"{preCaseCode}\" as PreCaseCode\n"
+            #         #umlString += getTabs(0,0) + f"[*] --> PreCaseCode : START\n"
+            #         #umlString += getTabs(0,0) + f"PreCaseCode --> {caseStates[-1]}\n"
+            #         umlString += getTabs(0,0) + f"state {caseStates[-1]} {GLOBALS_['CaseColourCode']} " + "{\n"        
+            #         print(f"[Line {i}]\tStarted CASE {caseStates[-1]} OF...")
+            #         GenState = UMLGenerationState.FIND_FIRST_STATE_START
+            #   except:   
+            #     eMsg = f"[Line {i}] ERROR: Failed to FIND_CASE_START (General Case).\nRETURNING EARLY...\n"
+            #     return printUmlException(umlString, eMsg)
+            elif not (Match := re.search('^\>\>.*$',line)) and line != "":
+              preCaseCode += line + "\\n"
           case UMLGenerationState.FIND_FIRST_STATE_START:
               try:
                 if Match := re.search(self.NEW_SUBSTATE_RE, line): 
@@ -395,7 +422,7 @@ class PlantUmlGenerator():
                     # No nested states, break to next state from the last substate we were in
                     umlString += getTabs(0,1) + "}\n" # Close case
                     umlString += branchString
-                    GenState = UMLGenerationState.FINISH_CASE
+                    GenState = UMLGenerationState.PARSE_POST_CASE
                 else:
                     eMsg = f"[Line {i}] ERROR: Found END_CASE with len(caseStates) != 1.\nReturning Early..."
                     return printUmlException(umlString, eMsg)
@@ -409,10 +436,19 @@ class PlantUmlGenerator():
             # TODO: May be redundant to have this switch state
             pass
           
-          case UMLGenerationState.FINISH_CASE:
-            return umlString
+          case UMLGenerationState.PARSE_POST_CASE:
+            if "States found:" in line: 
+              GenState = UMLGenerationState.FINISH_CASE
+            elif line != "":
+              print(line)
+              postCaseCode += line + "\\n"
           
-      return umlString
+          case UMLGenerationState.FINISH_CASE:
+            pass
+            
+      umlString += f"{caseStates[-1]} : {preCaseCode}\n"
+      umlString += f"{caseStates[-1]} : {postCaseCode}\n"
+      return umlString    
 
 
                   

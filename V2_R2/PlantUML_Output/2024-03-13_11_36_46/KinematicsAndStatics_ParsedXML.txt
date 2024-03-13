@@ -1,0 +1,31 @@
+	>>
+	>>Start of Method : InnerLoopSM
+	>>
+	>>
+	CASE CyclicInnerCase(TO_STRING(eInnerState)) OF
+		E_KinematicsAndStaticsStates.Idle:
+			IF bStart THEN
+				bStart := FALSE;
+				ChangeInnerState(E_KinematicsAndStaticsStates.Processing);
+			END_IF
+		E_KinematicsAndStaticsStates.Processing:
+			bTremorFilterOK := TremorFilter();
+			bFwdKinematicsOK := UpdateFwdKinematics();
+			bInvStaticsOK := UpdateInvStatics();
+			IF bTremorFilterOK AND bTremorFilterOK AND bInvStaticsOK THEN
+				IF bStop THEN
+					bStop := FALSE;
+					ChangeInnerState(E_KinematicsAndStaticsStates.Idle);
+				ELSE
+				END_IF
+			ELSE
+				bError := TRUE;			
+			END_IF
+	END_CASE
+
+
+States found:
+	eInnerState
+Methods Found:
+	InnerLoopSM
+Method-Case Pairs Found:

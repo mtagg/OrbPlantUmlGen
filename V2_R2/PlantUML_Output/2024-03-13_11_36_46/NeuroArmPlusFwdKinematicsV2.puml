@@ -1,0 +1,18 @@
+@startuml State Diagram
+
+!theme plain
+'skin rose
+'left to right direction
+hide empty description
+'!theme reddress-lightgreen
+title FB_NeuroArmPlusFwdKinematicsV2 State Diagram
+
+
+
+state FB_NeuroArmPlusFwdKinematicsV2{
+
+
+
+}
+
+@enduml

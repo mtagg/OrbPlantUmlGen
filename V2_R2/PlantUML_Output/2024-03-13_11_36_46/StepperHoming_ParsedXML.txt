@@ -1,0 +1,192 @@
+	>>
+	>>Start of Method : InnerLoopSM
+	>>
+	>>
+	CASE CyclicInnerCase(TO_STRING(eInnerState)) OF
+		E_StepperHomingStates.Idle:
+			IF bStart THEN
+				bStart := FALSE;
+				IF HomingNeeded THEN
+					ChangeInnerState(E_StepperHomingStates.CheckIfEnabled);
+				ELSE
+				END_IF
+			END_IF
+		E_StepperHomingStates.CheckIfEnabled:
+			bEnabledBeforeHoming := fbPower.Status; 
+			ChangeInnerState(E_StepperHomingStates.ResetAxis1);
+		E_StepperHomingStates.ResetAxis1:
+			fbReset(Axis:=stParent.stAxisRef,Execute:=TRUE);
+			nPLC_Cycles := 0;
+			ChangeInnerState(E_StepperHomingStates.ResetAxis2);
+		E_StepperHomingStates.ResetAxis2:
+			nPLC_Cycles := nPLC_Cycles +1; 
+			IF fbReset.Done THEN
+				fbReset(Axis:=stParent.stAxisRef,Execute:=FALSE);  
+				IF bEnabledBeforeHoming THEN
+					ChangeInnerState(E_StepperHomingStates.HomeSensorCheck);
+				ELSE
+					ChangeInnerState(E_StepperHomingStates.EnableAxis1);
+				END_IF
+			ELSIF fbReset.Error THEN
+				fbEventHandler(nBeckhoffID:=fbReset.ErrorID);
+				bError := TRUE;
+			ELSE
+				IF nPLC_Cycles > SystemConfig.nSTEPPER_MAX_CYCLES_TO_RESET THEN
+					fbEventHandler(eNapID:=E_Event.RESET_NOT_DONE_IN_ALLOTED_TIME);
+					bError := TRUE;
+				ELSE
+				END_IF
+			END_IF
+		E_StepperHomingStates.EnableAxis1:
+			fbPower(Axis:=stParent.stAxisRef,Enable:=TRUE, Enable_Positive := TRUE, Enable_Negative := TRUE);
+			nPLC_Cycles := 0;
+			ChangeInnerState(E_StepperHomingStates.EnableAxis2);
+		E_StepperHomingStates.EnableAxis2:
+			nPLC_Cycles := nPLC_Cycles +1; 
+			IF fbPower.Error THEN
+				fbEventHandler(nBeckhoffID:=fbPower.ErrorID);
+				bError := TRUE;
+			ELSIF fbPower.Status = TRUE THEN 
+				fbReset(Axis:=stParent.stAxisRef,Execute:=FALSE); 
+				ChangeInnerState(E_StepperHomingStates.HomeSensorCheck);
+			ELSE
+				IF nPLC_Cycles > SystemConfig.nSTEPPER_MAX_CYCLES_TO_ENABLE THEN
+					fbEventHandler(eNapID:=E_Event.ENABLE_NOT_DONE_IN_ALLOTED_TIME);
+					bError := TRUE;
+				ELSE
+				END_IF
+			END_IF
+		E_StepperHomingStates.HomeSensorCheck:
+			fRelativePosition := Beta;			
+			IF bOutsideHome THEN
+				ChangeInnerState(E_StepperHomingStates.OutwardMotion);
+			ELSE
+				ChangeInnerState(E_StepperHomingStates.InwardMotion);
+			END_IF
+		E_StepperHomingStates.OutwardMotion:
+			IF ABS(fRelativePosition - Beta) > (SystemConfig.fSTEPPER_MAX_INWARDS_POSITION + 2) THEN
+				fbEventHandler(eNapID:=E_Event.UNABLE_TO_FIND_HOME);
+				bError := TRUE;
+			ELSE
+				fbJog(Axis:=stParent.stAxisRef, Mode:=MC_JOGMODE_CONTINOUS, JogForward:=stParent.bOutwardsForward, JogBackwards:=stParent.bOutwardsBackwards,Velocity:=SystemConfig.fSTEPPER_HOMING_FAST_SPEED);
+				IF fbJog.Error THEN
+					fbEventHandler(nBeckhoffID:=fbJog.ErrorID);
+					bError := TRUE;
+				ELSIF fbJog.CommandAborted THEN
+					fbEventHandler(eNapID:=E_Event.MC2_JOG_COMMAND_ABORTED);
+					bError := TRUE;
+				ELSE
+					IF fbJog.Done THEN
+						sErrorDetails := 'fbJog.Done=TRUE unexpectedly';
+						fbEventHandler(eNapID:=E_Event.TASK_WARNING,sMessage:=sErrorDetails);
+					END_IF
+					IF NOT bOutsideHome THEN
+						fbJog(Axis:=stParent.stAxisRef, JogForward:=FALSE, JogBackwards:=FALSE); 
+						fRelativePosition := Beta;	
+						ChangeInnerState(E_StepperHomingStates.InwardMotion);
+					ELSE 
+					END_IF
+				END_IF
+			END_IF
+		E_StepperHomingStates.InwardMotion:
+			IF ABS(fRelativePosition - Beta) > (SystemConfig.fSTEPPER_HOME_ZONE_WIDTH + 2) THEN
+				fbEventHandler(eNapID:=E_Event.UNABLE_TO_LEAVE_HOME);
+				bError := TRUE;
+			ELSE
+				fbJog(Axis:=stParent.stAxisRef, Mode:=MC_JOGMODE_CONTINOUS, JogForward:=stParent.bInwardsForward, JogBackwards:=stParent.bInwardsBackwards,Velocity:=SystemConfig.fSTEPPER_HOMING_FAST_SPEED);
+				IF fbJog.Error THEN
+					fbEventHandler(nBeckhoffID:=fbJog.ErrorID);
+					bError := TRUE;
+				ELSIF fbJog.CommandAborted THEN
+					fbEventHandler(eNapID:=E_Event.MC2_JOG_COMMAND_ABORTED);
+					bError := TRUE;
+				ELSE
+					IF fbJog.Done THEN
+						sErrorDetails := 'fbJog.Done=TRUE unexpectedly';
+						fbEventHandler(eNapID:=E_Event.TASK_WARNING,sMessage:=sErrorDetails);
+					END_IF
+					IF bOutsideHome THEN
+						fbJog(Axis:=stParent.stAxisRef, JogForward:=FALSE, JogBackwards:=FALSE); 
+						fRelativePosition := Beta;	
+						ChangeInnerState(E_StepperHomingStates.OutwardCreep);
+					ELSE 
+					END_IF
+				END_IF
+			END_IF
+		E_StepperHomingStates.OutwardCreep:
+			IF ABS(fRelativePosition - Beta) > (SystemConfig.fSTEPPER_HOME_ZONE_WIDTH) THEN
+				fbEventHandler(eNapID:=E_Event.UNABLE_TO_FIND_HOME);
+				bError := TRUE;
+			ELSE
+				IF bOutsideHome THEN
+					fbJog(Axis:=stParent.stAxisRef, Mode:=MC_JOGMODE_CONTINOUS, JogForward:=stParent.bOutwardsForward, JogBackwards:=stParent.bOutwardsBackwards,Velocity:=SystemConfig.fSTEPPER_HOMING_SLOW_SPEED);
+					IF fbJog.Error THEN
+						fbEventHandler(nBeckhoffID:=fbJog.ErrorID);
+						bError := TRUE;
+					ELSIF fbJog.CommandAborted THEN
+						fbEventHandler(eNapID:=E_Event.MC2_JOG_COMMAND_ABORTED);
+						bError := TRUE;
+					ELSE
+						IF fbJog.Done THEN
+							sErrorDetails := 'fbJog.Done=TRUE unexpectedly';
+							fbEventHandler(eNapID:=E_Event.TASK_WARNING,sMessage:=sErrorDetails);
+						END_IF
+					END_IF
+				ELSE
+					fbJog(Axis:=stParent.stAxisRef, JogForward:=FALSE, JogBackwards:=FALSE); 
+					fRelativePosition := Beta;	
+					ChangeInnerState(E_StepperHomingStates.WaitingForHalt);
+				END_IF
+			END_IF
+		E_StepperHomingStates.WaitingForHalt:
+			fbHalt(Axis:=stParent.stAxisRef,Execute:=TRUE);
+			IF fbHalt.Done THEN
+				fbHalt(Axis:=stParent.stAxisRef,Execute:=FALSE);
+				ChangeInnerState(E_StepperHomingStates.GettingCurrentPos);
+			ELSIF fbHalt.Error THEN
+				fbEventHandler(nBeckhoffID:=fbHalt.ErrorID);
+				bError := TRUE;
+			ELSE
+			END_IF
+		E_StepperHomingStates.GettingCurrentPos:
+			fAbsolutePosition := stParent.fHomePosition + (Beta - fRelativePosition);
+			ChangeInnerState(E_StepperHomingStates.SettingHomePos);
+		E_StepperHomingStates.SettingHomePos:
+			fbHome(Axis:=stParent.stAxisRef, Execute:=TRUE, Position:=fAbsolutePosition, HomingMode:=MC_HomingMode.MC_Direct);
+			IF fbHome.Error THEN
+				fbEventHandler(nBeckhoffID:=fbHome.ErrorID);
+				bError := TRUE;
+			ELSIF fbHome.CommandAborted THEN
+				fbEventHandler(eNapID:=E_Event.MC2_HOME_COMMAND_ABORTED);
+				bError := TRUE;
+			ELSIF fbHome.Done THEN
+				fbHome(Axis:=stParent.stAxisRef, Execute:=FALSE); 
+				IF bEnabledBeforeHoming THEN
+					ChangeInnerState(E_StepperHomingStates.WrapUp);
+				ELSE
+					ChangeInnerState(E_StepperHomingStates.DisableAxis);
+				END_IF
+			ELSE
+			END_IF
+		E_StepperHomingStates.DisableAxis:
+			fbPower(Axis:=stParent.stAxisRef,Enable:=FALSE);
+			IF fbPower.Error THEN
+				fbEventHandler(nBeckhoffID:=fbPower.ErrorID);
+				bError := TRUE;
+			ELSIF fbPower.Status = FALSE THEN 
+				ChangeInnerState(E_StepperHomingStates.WrapUp);
+			ELSE
+			END_IF
+		E_StepperHomingStates.WrapUp:
+			stParent.bForceHoming := FALSE;
+			bCompleted := TRUE;
+			dtTimeCompleted := DateTime.GVL_DATE_TIME;
+			ChangeInnerState(E_StepperHomingStates.Idle);
+	END_CASE
+
+
+States found:
+	eInnerState
+Methods Found:
+	InnerLoopSM
+Method-Case Pairs Found:

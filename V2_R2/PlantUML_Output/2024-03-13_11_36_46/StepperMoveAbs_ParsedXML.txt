@@ -1,0 +1,76 @@
+	>>
+	>>Start of Method : InnerLoopSM
+	>>
+	>>
+	CASE CyclicInnerCase(TO_STRING(eInnerState)) OF
+		E_StepperMoveAbsStates.Idle:
+			IF bStart THEN
+				bStart := FALSE;
+				ChangeInnerState(E_StepperMoveAbsStates.CheckIfEnabled);
+			END_IF
+		E_StepperMoveAbsStates.CheckIfEnabled:
+			IF fbPower.Status THEN
+				ChangeInnerState(E_StepperMoveAbsStates.Move1);
+			ELSE
+				ChangeInnerState(E_StepperMoveAbsStates.EnableAxis1);
+			END_IF
+		E_StepperMoveAbsStates.EnableAxis1:
+			fbPower(Axis:=stParent.stAxisRef,Enable:=TRUE, Enable_Positive := TRUE, Enable_Negative := TRUE);
+			nPLC_Cycles := 0;
+			ChangeInnerState(E_StepperJogStates.EnableAxis2);
+		E_StepperMoveAbsStates.EnableAxis2:
+			nPLC_Cycles := nPLC_Cycles +1;
+			IF fbPower.Error THEN
+				fbEventHandler(nBeckhoffID:=fbPower.ErrorID);
+				bError := TRUE;
+			ELSIF fbPower.Status = TRUE THEN 
+				fbReset(Axis:=stParent.stAxisRef,Execute:=FALSE);
+				ChangeInnerState(E_StepperMoveAbsStates.Move1);
+			ELSE
+				IF nPLC_Cycles > SystemConfig.nSTEPPER_MAX_CYCLES_TO_ENABLE THEN
+					fbEventHandler(eNapID:=E_Event.ENABLE_NOT_DONE_IN_ALLOTED_TIME);
+					bError := TRUE;
+				ELSE
+				END_IF
+			END_IF
+		E_StepperMoveAbsStates.Move1:
+			IF fbMoveAbsolute.Busy THEN
+				sErrorDetails := 'fbMoveAbsolute.Busy = TRUE';
+				fbEventHandler(eNapID:=E_Event.SYSTEM_IN_UNEXPECTED_STATE,sMessage:=sErrorDetails);
+				bError := TRUE;	
+			ELSE
+				IF fbMoveAbsolute.Error THEN
+					fbEventHandler(eNapID:=E_Event.UNABLE_TO_START_TASK,  nBeckhoffID:=fbMoveAbsolute.ErrorID);
+					bError := TRUE;
+				ELSE
+					{warning 'MT TODO: Add move timer start here'}
+					fbMoveAbsolute(Axis:=stParent.stAxisRef,Execute:=TRUE,Velocity:=SystemConfig.fSTEPPER_HOMING_FAST_SPEED,Position:=fSetAngle);
+					ChangeInnerState(E_StepperMoveAbsStates.Move2);
+				END_IF
+			END_IF
+		E_StepperMoveAbsStates.Move2:
+		IF fbMoveAbsolute.Busy THEN
+			ELSE
+				IF fbMoveAbsolute.Error THEN
+					fbEventHandler(eNapID:=E_Event.UNABLE_TO_START_TASK,  nBeckhoffID:=fbMoveAbsolute.ErrorID);
+					bError := TRUE;
+				ELSIF fbMoveAbsolute.CommandAborted THEN
+					fbEventHandler(eNapID:=E_Event.MC2_JOG_COMMAND_ABORTED);
+					bError := TRUE;
+				ELSIF fbMoveAbsolute.Done THEN
+					{warning 'MT TODO: Add jog timer stop here'}
+					fbMoveAbsolute(Axis:=stParent.stAxisRef,Execute:=FALSE);
+					ChangeInnerState(E_StepperMoveAbsStates.Idle);
+				ELSE
+					fbEventHandler(eNapID:=E_Event.SYSTEM_IN_UNEXPECTED_STATE);
+					bError := TRUE;
+				END_IF
+			END_IF
+	END_CASE
+
+
+States found:
+	eInnerState
+Methods Found:
+	InnerLoopSM
+Method-Case Pairs Found:

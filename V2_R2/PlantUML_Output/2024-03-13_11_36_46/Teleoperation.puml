@@ -1,0 +1,233 @@
+@startuml State Diagram
+
+!theme plain
+'skin rose
+left to right direction
+hide empty description
+'!theme reddress-lightgreen
+title FB_Teleoperation State Diagram
+
+
+
+state FB_Teleoperation{
+
+state eInnerState #84b1f5 {
+	[*] --> eInnerState_Idle : START
+	state eInnerState_Idle #lightblue {
+state "ERROR" as eInnerState_Idle_ERROR <<exitPoint>> #ff3333
+	state eInnerState_Idle_Node_0 <<choice>>
+	[*] ---> eInnerState_Idle_Node_0 : START
+	eInnerState_Idle_Node_0 ---> [*] : (bStart)
+	}
+	state eInnerState_StartDataProcessing1 #lightblue {
+state "ERROR" as eInnerState_StartDataProcessing1_ERROR <<exitPoint>> #ff3333
+	state eInnerState_StartDataProcessing1_Node_0 <<choice>>
+	[*] ---> eInnerState_StartDataProcessing1_Node_0 : START
+	state "fbEventHandler(SYSTEM_IN_UNEXPECTED_STATE)" as eInnerState_StartDataProcessing1_Node_1 
+		state eInnerState_StartDataProcessing1_Node_2 <<choice>>
+		state "fbEventHandler(UNABLE_TO_START_TASK)" as eInnerState_StartDataProcessing1_Node_3 
+	eInnerState_StartDataProcessing1_Node_2 ---> [*] : (NOT (fbKnS.bError))
+	}
+	state eInnerState_StartDataProcessing2 #lightblue {
+state "ERROR" as eInnerState_StartDataProcessing2_ERROR <<exitPoint>> #ff3333
+	state eInnerState_StartDataProcessing2_Node_0 <<choice>>
+	[*] ---> eInnerState_StartDataProcessing2_Node_0 : START
+	eInnerState_StartDataProcessing2_Node_0 ---> [*] : (fbKnS.Processing)
+		state eInnerState_StartDataProcessing2_Node_1 <<choice>>
+		state "fbEventHandler(TASK_FAILED)" as eInnerState_StartDataProcessing2_Node_2 
+	}
+	state eInnerState_StartCommRM1 #lightblue {
+state "ERROR" as eInnerState_StartCommRM1_ERROR <<exitPoint>> #ff3333
+	state eInnerState_StartCommRM1_Node_0 <<choice>>
+	[*] ---> eInnerState_StartCommRM1_Node_0 : START
+	state "fbEventHandler(SYSTEM_IN_UNEXPECTED_STATE)" as eInnerState_StartCommRM1_Node_1 
+		state eInnerState_StartCommRM1_Node_2 <<choice>>
+		state "fbEventHandler(UNABLE_TO_START_TASK)" as eInnerState_StartCommRM1_Node_3 
+	eInnerState_StartCommRM1_Node_2 ---> [*] : (NOT (fbRemoteManipulator.bError))
+	}
+	state eInnerState_StartCommRM2 #lightblue {
+state "ERROR" as eInnerState_StartCommRM2_ERROR <<exitPoint>> #ff3333
+	state eInnerState_StartCommRM2_Node_0 <<choice>>
+	[*] ---> eInnerState_StartCommRM2_Node_0 : START
+	state "fbEventHandler(TASK_FAILED)" as eInnerState_StartCommRM2_Node_1 
+		state eInnerState_StartCommRM2_Node_2 <<choice>>
+	eInnerState_StartCommRM2_Node_2 ---> [*] : (fbRemoteManipulator.Connected)
+	}
+	state eInnerState_EnableArmMotors1 #lightblue {
+state "ERROR" as eInnerState_EnableArmMotors1_ERROR <<exitPoint>> #ff3333
+	state eInnerState_EnableArmMotors1_Node_0 <<choice>>
+	[*] ---> eInnerState_EnableArmMotors1_Node_0 : START
+	state "fbEventHandler(SYSTEM_IN_UNEXPECTED_STATE)" as eInnerState_EnableArmMotors1_Node_1 
+		state eInnerState_EnableArmMotors1_Node_2 <<choice>>
+		state "fbEventHandler(UNABLE_TO_START_TASK)" as eInnerState_EnableArmMotors1_Node_3 
+	eInnerState_EnableArmMotors1_Node_2 ---> [*] : (NOT (fbArmMotors.bError))
+	}
+	state eInnerState_EnableArmMotors2 #lightblue {
+state "ERROR" as eInnerState_EnableArmMotors2_ERROR <<exitPoint>> #ff3333
+	state eInnerState_EnableArmMotors2_Node_0 <<choice>>
+	[*] ---> eInnerState_EnableArmMotors2_Node_0 : START
+		state eInnerState_EnableArmMotors2_Node_1 <<choice>>
+		state "fbEventHandler(TASK_FAILED)" as eInnerState_EnableArmMotors2_Node_2 
+	eInnerState_EnableArmMotors2_Node_1 ---> [*] : (NOT (fbArmMotors.bError))
+	}
+	state eInnerState_SetupWeightCompOn1 #lightblue {
+state "ERROR" as eInnerState_SetupWeightCompOn1_ERROR <<exitPoint>> #ff3333
+	state eInnerState_SetupWeightCompOn1_Node_0 <<choice>>
+	[*] ---> eInnerState_SetupWeightCompOn1_Node_0 : START
+	eInnerState_SetupWeightCompOn1_Node_0 ---> [*] : (NOT (CheckForFailedChildren()))
+	}
+	state eInnerState_SetupWeightCompOn2 #lightblue {
+state "ERROR" as eInnerState_SetupWeightCompOn2_ERROR <<exitPoint>> #ff3333
+	state eInnerState_SetupWeightCompOn2_Node_0 <<choice>>
+	[*] ---> eInnerState_SetupWeightCompOn2_Node_0 : START
+		state eInnerState_SetupWeightCompOn2_Node_1 <<choice>>
+	eInnerState_SetupWeightCompOn2_Node_1 ---> [*] : (bStop)
+		state eInnerState_SetupWeightCompOn2_Node_2 <<choice>>
+	eInnerState_SetupWeightCompOn2_Node_2 ---> [*] : (bTeleopOperational)
+	eInnerState_SetupWeightCompOn2_Node_2 ---> [*] : (bTeleopOperational)
+	}
+	state eInnerState_SetupWeightCompOff1 #lightblue {
+state "ERROR" as eInnerState_SetupWeightCompOff1_ERROR <<exitPoint>> #ff3333
+	state eInnerState_SetupWeightCompOff1_Node_0 <<choice>>
+	[*] ---> eInnerState_SetupWeightCompOff1_Node_0 : START
+	eInnerState_SetupWeightCompOff1_Node_0 ---> [*] : (NOT (CheckForFailedChildren()))
+	}
+	state eInnerState_SetupWeightCompOff2 #lightblue {
+state "ERROR" as eInnerState_SetupWeightCompOff2_ERROR <<exitPoint>> #ff3333
+	state eInnerState_SetupWeightCompOff2_Node_0 <<choice>>
+	[*] ---> eInnerState_SetupWeightCompOff2_Node_0 : START
+		state eInnerState_SetupWeightCompOff2_Node_1 <<choice>>
+	eInnerState_SetupWeightCompOff2_Node_1 ---> [*] : (bStop)
+		state eInnerState_SetupWeightCompOff2_Node_2 <<choice>>
+	eInnerState_SetupWeightCompOff2_Node_2 ---> [*] : (bTeleopOperational)
+		state eInnerState_SetupWeightCompOff2_Node_3 <<choice>>
+	eInnerState_SetupWeightCompOff2_Node_3 ---> [*] : (bMotionWhileDocked)
+	}
+	state eInnerState_Operational1 #lightblue {
+state "ERROR" as eInnerState_Operational1_ERROR <<exitPoint>> #ff3333
+	state eInnerState_Operational1_Node_0 <<choice>>
+	[*] ---> eInnerState_Operational1_Node_0 : START
+	eInnerState_Operational1_Node_0 ---> [*] : (NOT (CheckForFailedChildren()))
+	}
+	state eInnerState_Operational2 #lightblue {
+state "ERROR" as eInnerState_Operational2_ERROR <<exitPoint>> #ff3333
+	state eInnerState_Operational2_Node_0 <<choice>>
+	[*] ---> eInnerState_Operational2_Node_0 : START
+		state eInnerState_Operational2_Node_1 <<choice>>
+	eInnerState_Operational2_Node_1 ---> [*] : (bRemoteError)
+		state eInnerState_Operational2_Node_2 <<choice>>
+	eInnerState_Operational2_Node_2 ---> [*] : (bStop)
+		state eInnerState_Operational2_Node_3 <<choice>>
+	eInnerState_Operational2_Node_3 ---> [*] : (NOT bTeleopOperational)
+	}
+	state eInnerState_ErrorWaitingForDock #lightblue {
+state "ERROR" as eInnerState_ErrorWaitingForDock_ERROR <<exitPoint>> #ff3333
+	state eInnerState_ErrorWaitingForDock_Node_0 <<choice>>
+	[*] ---> eInnerState_ErrorWaitingForDock_Node_0 : START
+	}
+	state eInnerState_StartShuttingDown #lightblue {
+state "ERROR" as eInnerState_StartShuttingDown_ERROR <<exitPoint>> #ff3333
+	[*] ---> [*]
+	}
+	state eInnerState_DisableArmMotors #lightblue {
+state "ERROR" as eInnerState_DisableArmMotors_ERROR <<exitPoint>> #ff3333
+	state eInnerState_DisableArmMotors_Node_0 <<choice>>
+	[*] ---> eInnerState_DisableArmMotors_Node_0 : START
+		state eInnerState_DisableArmMotors_Node_1 <<choice>>
+		state "fbEventHandler(UNABLE_TO_COMPLETE_TASK)" as eInnerState_DisableArmMotors_Node_2 
+	eInnerState_DisableArmMotors_Node_1 ---> [*] : (NOT (fbArmMotors.bError))
+	}
+	state eInnerState_StopCommRM #lightblue {
+state "ERROR" as eInnerState_StopCommRM_ERROR <<exitPoint>> #ff3333
+	state eInnerState_StopCommRM_Node_0 <<choice>>
+	[*] ---> eInnerState_StopCommRM_Node_0 : START
+		state eInnerState_StopCommRM_Node_1 <<choice>>
+		state "fbEventHandler(UNABLE_TO_COMPLETE_TASK)" as eInnerState_StopCommRM_Node_2 
+	eInnerState_StopCommRM_Node_1 ---> [*] : (NOT (fbRemoteManipulator.bError))
+	}
+	state eInnerState_StopDataProcessing #lightblue {
+state "ERROR" as eInnerState_StopDataProcessing_ERROR <<exitPoint>> #ff3333
+	state eInnerState_StopDataProcessing_Node_0 <<choice>>
+	[*] ---> eInnerState_StopDataProcessing_Node_0 : START
+		state eInnerState_StopDataProcessing_Node_1 <<choice>>
+		state "fbEventHandler(UNABLE_TO_COMPLETE_TASK)" as eInnerState_StopDataProcessing_Node_2 
+	eInnerState_StopDataProcessing_Node_1 ---> [*] : (NOT (fbKnS.bError))
+	}
+	state eInnerState_WrapUp #lightblue {
+state "ERROR" as eInnerState_WrapUp_ERROR <<exitPoint>> #ff3333
+	[*] ---> [*]
+	}
+	}
+	eInnerState_Idle ---> eInnerState_StartDataProcessing1 : (bStart)
+	eInnerState_StartDataProcessing1_Node_0 ---> eInnerState_StartDataProcessing1_Node_1 : (fbKnS.Busy)
+	eInnerState_StartDataProcessing1_Node_1 ---> eInnerState_StartDataProcessing1_ERROR : (fbKnS.Busy)
+	eInnerState_StartDataProcessing1_Node_0 ---> eInnerState_StartDataProcessing1_Node_2 : (NOT (fbKnS.Busy))
+	eInnerState_StartDataProcessing1_Node_2 ---> eInnerState_StartDataProcessing1_Node_3 : (fbKnS.bError)
+	eInnerState_StartDataProcessing1_Node_3 ---> eInnerState_StartDataProcessing1_ERROR : (fbKnS.bError)
+	eInnerState_StartDataProcessing1 ---> eInnerState_StartDataProcessing2 : (NOT (fbKnS.bError))
+	eInnerState_StartDataProcessing2 ---> eInnerState_StartCommRM1 : (fbKnS.Processing)
+	eInnerState_StartDataProcessing2_Node_0 ---> eInnerState_StartDataProcessing2_Node_1 : (NOT (fbKnS.Processing))
+	eInnerState_StartDataProcessing2_Node_1 ---> eInnerState_StartDataProcessing2_Node_2 : (fbKnS.bError)
+	eInnerState_StartDataProcessing2_Node_2 ---> eInnerState_StartDataProcessing2_ERROR : (fbKnS.bError)
+	eInnerState_StartCommRM1_Node_0 ---> eInnerState_StartCommRM1_Node_1 : (fbRemoteManipulator.Busy)
+	eInnerState_StartCommRM1_Node_1 ---> eInnerState_StartCommRM1_ERROR : (fbRemoteManipulator.Busy)
+	eInnerState_StartCommRM1_Node_0 ---> eInnerState_StartCommRM1_Node_2 : (NOT (fbRemoteManipulator.Busy))
+	eInnerState_StartCommRM1_Node_2 ---> eInnerState_StartCommRM1_Node_3 : (fbRemoteManipulator.bError)
+	eInnerState_StartCommRM1_Node_3 ---> eInnerState_StartCommRM1_ERROR : (fbRemoteManipulator.bError)
+	eInnerState_StartCommRM1 ---> eInnerState_StartCommRM2 : (NOT (fbRemoteManipulator.bError))
+	eInnerState_StartCommRM2_Node_0 ---> eInnerState_StartCommRM2_Node_1 : (fbRemoteManipulator.Failed)
+	eInnerState_StartCommRM2_Node_1 ---> eInnerState_StartCommRM2_ERROR : (fbRemoteManipulator.Failed)
+	eInnerState_StartCommRM2_Node_0 ---> eInnerState_StartCommRM2_Node_2 : (NOT (fbRemoteManipulator.Failed))
+	eInnerState_StartCommRM2 ---> eInnerState_EnableArmMotors1 : (fbRemoteManipulator.Connected)
+	eInnerState_EnableArmMotors1_Node_0 ---> eInnerState_EnableArmMotors1_Node_1 : (fbArmMotors.Busy)
+	eInnerState_EnableArmMotors1_Node_1 ---> eInnerState_EnableArmMotors1_ERROR : (fbArmMotors.Busy)
+	eInnerState_EnableArmMotors1_Node_0 ---> eInnerState_EnableArmMotors1_Node_2 : (NOT (fbArmMotors.Busy))
+	eInnerState_EnableArmMotors1_Node_2 ---> eInnerState_EnableArmMotors1_Node_3 : (fbArmMotors.bError)
+	eInnerState_EnableArmMotors1_Node_3 ---> eInnerState_EnableArmMotors1_ERROR : (fbArmMotors.bError)
+	eInnerState_EnableArmMotors1 ---> eInnerState_EnableArmMotors2 : (NOT (fbArmMotors.bError))
+	eInnerState_EnableArmMotors2_Node_0 ---> eInnerState_EnableArmMotors2_Node_1 : (NOT (fbArmMotors.Busy))
+	eInnerState_EnableArmMotors2_Node_1 ---> eInnerState_EnableArmMotors2_Node_2 : (fbArmMotors.bError)
+	eInnerState_EnableArmMotors2_Node_2 ---> eInnerState_EnableArmMotors2_ERROR : (fbArmMotors.bError)
+	eInnerState_EnableArmMotors2 ---> eInnerState_SetupWeightCompOn1 : (NOT (fbArmMotors.bError))
+	eInnerState_SetupWeightCompOn1 ---> eInnerState_SetupWeightCompOn2 : (NOT (CheckForFailedChildren()))
+	eInnerState_SetupWeightCompOn2_Node_0 ---> eInnerState_SetupWeightCompOn2_Node_1 : (NOT (CheckForFailedChildren()))
+	eInnerState_SetupWeightCompOn2 ---> eInnerState_StartShuttingDown : (bStop)
+	eInnerState_SetupWeightCompOn2_Node_1 ---> eInnerState_SetupWeightCompOn2_Node_2 : (NOT (bStop))
+	eInnerState_SetupWeightCompOn2 ---> eInnerState_Operational1 : (bTeleopOperational)
+	eInnerState_SetupWeightCompOn2 ---> eInnerState_SetupWeightCompOff1 : (bTeleopOperational)
+	eInnerState_SetupWeightCompOff1 ---> eInnerState_SetupWeightCompOff2 : (NOT (CheckForFailedChildren()))
+	eInnerState_SetupWeightCompOff2_Node_0 ---> eInnerState_SetupWeightCompOff2_Node_1 : (NOT (CheckForFailedChildren()))
+	eInnerState_SetupWeightCompOff2 ---> eInnerState_StartShuttingDown : (bStop)
+	eInnerState_SetupWeightCompOff2_Node_1 ---> eInnerState_SetupWeightCompOff2_Node_2 : (NOT (bStop))
+	eInnerState_SetupWeightCompOff2 ---> eInnerState_Operational1 : (bTeleopOperational)
+	eInnerState_SetupWeightCompOff2_Node_2 ---> eInnerState_SetupWeightCompOff2_Node_3 : (NOT (bTeleopOperational))
+	eInnerState_SetupWeightCompOff2 ---> eInnerState_SetupWeightCompOn1 : (bMotionWhileDocked)
+	eInnerState_Operational1 ---> eInnerState_Operational2 : (NOT (CheckForFailedChildren()))
+	eInnerState_Operational2_Node_0 ---> eInnerState_Operational2_Node_1 : (CheckForFailedChildren())
+	eInnerState_Operational2 ---> eInnerState_ErrorWaitingForDock : (bRemoteError)
+	eInnerState_Operational2_Node_1 ---> eInnerState_Operational2_ERROR : (CheckForFailedChildren())
+	eInnerState_Operational2_Node_0 ---> eInnerState_Operational2_Node_2 : (NOT (CheckForFailedChildren()))
+	eInnerState_Operational2 ---> eInnerState_StartShuttingDown : (bStop)
+	eInnerState_Operational2_Node_2 ---> eInnerState_Operational2_Node_3 : (NOT (bStop))
+	eInnerState_Operational2 ---> eInnerState_SetupWeightCompOn1 : (NOT bTeleopOperational)
+	eInnerState_StartShuttingDown ---> eInnerState_DisableArmMotors
+	eInnerState_DisableArmMotors_Node_0 ---> eInnerState_DisableArmMotors_Node_1 : (NOT (fbArmMotors.Busy))
+	eInnerState_DisableArmMotors_Node_1 ---> eInnerState_DisableArmMotors_Node_2 : (fbArmMotors.bError)
+	eInnerState_DisableArmMotors_Node_2 ---> eInnerState_DisableArmMotors_ERROR : (fbArmMotors.bError)
+	eInnerState_DisableArmMotors ---> eInnerState_StopCommRM : (NOT (fbArmMotors.bError))
+	eInnerState_StopCommRM_Node_0 ---> eInnerState_StopCommRM_Node_1 : (NOT (fbRemoteManipulator.Busy))
+	eInnerState_StopCommRM_Node_1 ---> eInnerState_StopCommRM_Node_2 : (fbRemoteManipulator.bError)
+	eInnerState_StopCommRM_Node_2 ---> eInnerState_StopCommRM_ERROR : (fbRemoteManipulator.bError)
+	eInnerState_StopCommRM ---> eInnerState_StopDataProcessing : (NOT (fbRemoteManipulator.bError))
+	eInnerState_StopDataProcessing_Node_0 ---> eInnerState_StopDataProcessing_Node_1 : (NOT (fbKnS.Busy))
+	eInnerState_StopDataProcessing_Node_1 ---> eInnerState_StopDataProcessing_Node_2 : (fbKnS.bError)
+	eInnerState_StopDataProcessing_Node_2 ---> eInnerState_StopDataProcessing_ERROR : (fbKnS.bError)
+	eInnerState_StopDataProcessing ---> eInnerState_WrapUp : (NOT (fbKnS.bError))
+	eInnerState_WrapUp ---> eInnerState_Idle
+eInnerState : 
+eInnerState : 
+
+
+}
+
+@enduml

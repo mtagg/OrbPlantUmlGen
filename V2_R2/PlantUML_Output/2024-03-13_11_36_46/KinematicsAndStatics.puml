@@ -1,0 +1,39 @@
+@startuml State Diagram
+
+!theme plain
+'skin rose
+'left to right direction
+hide empty description
+'!theme reddress-lightgreen
+title FB_KinematicsAndStatics State Diagram
+
+
+
+state FB_KinematicsAndStatics{
+
+state eInnerState #84b1f5 {
+	[*] --> eInnerState_Idle : START
+	state eInnerState_Idle #lightblue {
+state "ERROR" as eInnerState_Idle_ERROR <<exitPoint>> #ff3333
+	state eInnerState_Idle_Node_0 <<choice>>
+	[*] ---> eInnerState_Idle_Node_0 : START
+	eInnerState_Idle_Node_0 ---> [*] : (bStart)
+	}
+	state eInnerState_Processing #lightblue {
+state "ERROR" as eInnerState_Processing_ERROR <<exitPoint>> #ff3333
+	state eInnerState_Processing_Node_0 <<choice>>
+	[*] ---> eInnerState_Processing_Node_0 : START
+		state eInnerState_Processing_Node_1 <<choice>>
+	eInnerState_Processing_Node_1 ---> [*] : (bStop)
+	}
+	}
+	eInnerState_Idle ---> eInnerState_Processing : (bStart)
+	eInnerState_Processing_Node_0 ---> eInnerState_Processing_Node_1 : (bTremorFilterOK\nAND bTremorFilterOK\nAND bInvStaticsOK)
+	eInnerState_Processing ---> eInnerState_Idle : (bStop)
+eInnerState : 
+eInnerState : 
+
+
+}
+
+@enduml

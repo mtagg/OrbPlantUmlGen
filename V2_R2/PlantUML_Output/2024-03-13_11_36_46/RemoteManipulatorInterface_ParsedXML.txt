@@ -1,0 +1,83 @@
+	>>
+	>>Start of Method : InnerLoopSM
+	>>
+	>>
+	CASE CyclicInnerCase(TO_STRING(eInnerState)) OF
+		E_RemoteManipulatorInterfaceStates.Idle:
+			IF bEstablishComm THEN
+				bEstablishComm := FALSE;
+				tcpclient.bActive := TRUE;
+				ChangeInnerState(E_RemoteManipulatorInterfaceStates.Connecting1);
+			END_IF
+		E_RemoteManipulatorInterfaceStates.Connecting1:
+			fbConnectTON( IN := FALSE );
+			fbDataExchaTON( IN := FALSE );
+			fbConnectTON( IN := TRUE, PT := T#5S );
+			ChangeInnerState(E_RemoteManipulatorInterfaceStates.Connecting2);
+		E_RemoteManipulatorInterfaceStates.Connecting2:	
+			tcpclient(bSend := FALSE);
+			fbConnectTON();
+			IF tcpclient.bConnected THEN
+				fbConnectTON( IN := FALSE );
+				ChangeInnerState(E_RemoteManipulatorInterfaceStates.DataExchange1);
+			ELSE
+				IF fbConnectTON.Q THEN
+					fbConnectTON( IN := FALSE );
+					fbEventHandler(eNapID:=E_Event.TCP_CONNECTION_TIMEOUT);
+					bError:=TRUE;
+				END_IF
+			END_IF
+		E_RemoteManipulatorInterfaceStates.DataExchange1:
+			IF bEndCommunication THEN
+				bEndCommunication := FALSE;
+				IF Connected THEN
+					ChangeInnerState(E_RemoteManipulatorInterfaceStates.CloseConnection1);
+				ELSE
+					fbEventHandler(eNapID:=E_Event.SYSTEM_IN_UNEXPECTED_STATE, sMessage:='Close Requested while bConnected=FALSE');
+					bError:=TRUE;
+				END_IF
+			ELSE
+				IF Connected THEN
+					nCycleID := nCycleID + 1;
+					stProcessedDataToRM.nCycleID := UINT_TO_LREAL(nCycleID);
+					stDummyDataToRM.nCycleID := UINT_TO_LREAL(nCycleID);
+					IF bSendMotionCommands THEN
+						bSendMotionCommands := FALSE;
+						stDummyDataToRM := stProcessedDataToRM;
+						tcpclient(bSend:=TRUE, stSendData := THIS^.stProcessedDataToRM, stReceiveData => THIS^.stDataFromKuka);
+					ELSE
+						tcpclient(bSend:=TRUE, stSendData := THIS^.stDummyDataToRM, stReceiveData => THIS^.stDataFromKuka);
+					END_IF
+				ELSE
+					tcpclient(bSend:=TRUE, stSendData := THIS^.stDummyDataToRM, stReceiveData => THIS^.stDataFromKuka);
+					fbEventHandler(eNapID:=E_Event.TCP_TEMPORARY_CONNECTION_LOST);
+					fbDataExchaTON( IN := TRUE, PT := T#3S );
+					ChangeInnerState(E_RemoteManipulatorInterfaceStates.DataExchange2);
+				END_IF
+			END_IF
+			ResetTimeDerivatives(); 
+		E_RemoteManipulatorInterfaceStates.DataExchange2:
+			tcpclient(bSend:=FALSE);
+			fbDataExchaTON();
+			IF fbDataExchaTON.Q THEN
+				fbDataExchaTON( IN := FALSE );
+				fbEventHandler(eNapID:=E_Event.TCP_CONNETION_LOST);
+				bError:=TRUE;
+			ELSIF tcpclient.bConnected THEN
+				ChangeInnerState(E_RemoteManipulatorInterfaceStates.DataExchange1);
+			END_IF
+		E_RemoteManipulatorInterfaceStates.CloseConnection1:
+			IF Connected THEN
+				{warning 'tcpclient FB does not currently facilitate closure of socket'}
+				tcpclient(bActive:=FALSE);
+			ELSE
+				ChangeInnerState(E_RemoteManipulatorInterfaceStates.Idle);
+			END_IF
+	END_CASE
+
+
+States found:
+	eInnerState
+Methods Found:
+	InnerLoopSM
+Method-Case Pairs Found:

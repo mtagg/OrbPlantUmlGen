@@ -1,0 +1,211 @@
+	>>
+	>>Start of Method : InnerLoopSM
+	>>
+	>>
+	fbHoming();
+	fbJogging();
+	fbMoveAbs();
+	fbEnable();
+	CASE CyclicInnerCase(TO_STRING(eInnerState)) OF
+		E_StepperStates.Idle:
+			IF bEnableAxis THEN
+				bEnableAxis := FALSE;
+				ChangeInnerState(E_StepperStates.Enabling1);
+			ELSIF bStartHoming THEN
+				bStartHoming := FALSE;
+				ChangeInnerState(E_StepperStates.Homing1);
+			ELSIF bStartErgoAng THEN
+				bStartErgoAng := FALSE;
+				ChangeInnerState(E_StepperStates.MovingAbs1);
+			ELSIF bStartErgoJog THEN
+				bStartErgoJog := FALSE;
+				ChangeInnerState(E_StepperStates.Jogging1);
+			ELSIF bDisableAxis THEN
+				bDisableAxis := FALSE;
+				IF Enabled THEN
+					 ChangeInnerState(E_StepperStates.Disabling1);
+				END_IF
+			END_IF
+		E_StepperStates.Enabling1:
+			IF fbEnable.Busy THEN
+				sErrorDetails := 'fbEnable.Busy = TRUE';
+				fbEventHandler(eNapID:=E_Event.SYSTEM_IN_UNEXPECTED_STATE,sMessage:=sErrorDetails);
+				bError := TRUE;	
+			ELSE
+				IF fbEnable.bError THEN
+					fbEventHandler(eNapID:=E_Event.UNABLE_TO_START_TASK,sTrace:=fbEnable.EventTrace);
+					fbEnable.ErrorAck := TRUE;
+					bError := TRUE;
+				ELSE
+					fbEnable.bEnable := TRUE;
+					fbEnable.bStart := TRUE;
+					ChangeInnerState(E_StepperStates.Enabling2);
+				END_IF
+			END_IF
+		E_StepperStates.Enabling2:
+			fbPower(Axis:=stAxis.stAxisRef);
+			fbReset(Axis:=stAxis.stAxisRef);
+			IF fbEnable.Busy THEN
+			ELSE
+				IF fbEnable.bError THEN
+					fbEventHandler(eNapID:=E_Event.UNABLE_TO_COMPLETE_TASK,sTrace:=fbEnable.EventTrace);
+					fbEnable.ErrorAck := TRUE;
+					bError := TRUE;
+				ELSIF Enabled=TRUE THEN
+					ChangeInnerState(E_StepperStates.Idle);
+				ELSE
+					sErrorDetails := 'fbEnable.Busy = FALSE, fbEnable.bEnabled=FALSE';
+					fbEventHandler(eNapID:=E_Event.UNABLE_TO_COMPLETE_TASK,sMessage:=sErrorDetails);
+					bError := TRUE;					
+				END_IF
+			END_IF
+		E_StepperStates.Homing1:
+			IF fbHoming.Busy THEN
+				sErrorDetails := 'fbHoming.Busy = TRUE';
+				fbEventHandler(eNapID:=E_Event.SYSTEM_IN_UNEXPECTED_STATE,sMessage:=sErrorDetails);
+				bError := TRUE;	
+			ELSE
+				IF fbHoming.bError THEN
+					fbEventHandler(eNapID:=E_Event.UNABLE_TO_START_TASK,sTrace:=fbHoming.EventTrace);
+					fbHoming.ErrorAck := TRUE;
+					bError := TRUE;
+				ELSE
+					fbHoming.bStart:=TRUE;
+					ChangeInnerState(E_StepperStates.Homing2);
+				END_IF
+			END_IF
+		E_StepperStates.Homing2:
+			fbPower(Axis:=stAxis.stAxisRef);
+			fbReset(Axis:=stAxis.stAxisRef);
+			fbJog(Axis:=stAxis.stAxisRef);
+			fbHalt(Axis:=stAxis.stAxisRef);
+			fbHome(Axis:=stAxis.stAxisRef);
+			IF fbHoming.Busy THEN
+			ELSE
+				IF fbHoming.bError THEN
+					fbEventHandler(eNapID:=E_Event.TASK_FAILED,sTrace:=fbHoming.EventTrace);
+					fbHoming.ErrorAck:=TRUE;
+					bError := TRUE;
+				ELSE
+					IF Homed THEN
+						fbEventHandler(eNapID:=E_Event.REQUEST_COMPLETED);
+						ChangeInnerState(E_StepperStates.Idle);
+					ELSE
+						sErrorDetails := 'Homed=FALSE';
+						fbEventHandler(eNapID:=E_Event.TASK_FAILED,sMessage:=sErrorDetails);
+						bError := TRUE;
+					END_IF
+				END_IF
+			END_IF
+		E_StepperStates.MovingAbs1: 
+			IF fbHoming.HomingNeeded THEN
+				sErrorDetails := 'Attempted MoveAbs when homing needed';
+				fbEventHandler(eNapID:=E_Event.UNABLE_TO_START_TASK, sMessage:=sErrorDetails);
+				bError := TRUE;
+			ELSE
+				IF fbMoveAbs.Busy THEN
+					sErrorDetails := 'fbMoveAbsolute.Busy = TRUE';
+					fbEventHandler(eNapID:=E_Event.SYSTEM_IN_UNEXPECTED_STATE,sMessage:=sErrorDetails);
+					bError := TRUE;	
+				ELSE
+					IF fbMoveAbs.bError THEN
+						fbEventHandler(eNapID:=E_Event.UNABLE_TO_START_TASK, sTrace:=fbMoveAbs.EventTrace);
+						fbMoveAbs.ErrorAck := TRUE;
+						bError := TRUE;
+					ELSE
+						fbMoveAbs.fSetAngle := THIS^.fSetAngle;
+						fbMoveAbs.bStart := TRUE;
+						ChangeInnerState(E_StepperStates.MovingAbs2);
+					END_IF
+				END_IF		
+			END_IF
+		E_StepperStates.MovingAbs2: 
+			fbPower(Axis:=stAxis.stAxisRef);
+			fbReset(Axis:=stAxis.stAxisRef);
+			fbMoveAbsolute(Axis:=stAxis.stAxisRef);
+			IF fbMoveAbs.Busy THEN
+			ELSE
+				IF fbMoveAbs.bError THEN
+					fbEventHandler(eNapID:=E_Event.UNABLE_TO_COMPLETE_TASK, sTrace:=fbMoveAbs.EventTrace);
+					fbMoveAbs.ErrorAck := TRUE;
+					bError := TRUE;
+				ELSE
+					ChangeInnerState(E_StepperStates.Idle);
+				END_IF
+			END_IF		
+		E_StepperStates.Jogging1:
+			IF fbHoming.HomingNeeded THEN
+				sErrorDetails := 'Attempted Jog when homing needed';
+				fbEventHandler(eNapID:=E_Event.UNABLE_TO_START_TASK, sMessage:=sErrorDetails);
+				bError := TRUE;
+			ELSE
+				IF fbJogging.Busy THEN
+					sErrorDetails := 'fbJogging.Busy = TRUE';
+					fbEventHandler(eNapID:=E_Event.SYSTEM_IN_UNEXPECTED_STATE,sMessage:=sErrorDetails);
+					bError := TRUE;	
+				ELSE
+					IF fbJogging.bError THEN
+						fbEventHandler(eNapID:=E_Event.UNABLE_TO_START_TASK,  sTrace:=fbJogging.EventTrace);
+						fbJogging.ErrorAck := TRUE;
+						bError := TRUE;
+					ELSE
+						fbJogging.eDirection := eJogDirection;
+						fbJogging.bStart := TRUE;
+						ChangeInnerState(E_StepperStates.Jogging2);
+					END_IF
+				END_IF
+			END_IF
+		E_StepperStates.Jogging2:
+			fbPower(Axis:=stAxis.stAxisRef);
+			fbReset(Axis:=stAxis.stAxisRef);
+			fbJog(Axis:=stAxis.stAxisRef);
+			IF fbJogging.Busy THEN
+			ELSE
+				IF fbJogging.bError THEN
+					fbEventHandler(eNapID:=E_Event.UNABLE_TO_COMPLETE_TASK, sTrace:=fbJogging.EventTrace);
+					fbJogging.ErrorAck := TRUE;
+					bError := TRUE;
+				ELSE
+					ChangeInnerState(E_StepperStates.Idle);
+				END_IF
+			END_IF
+			E_StepperStates.Disabling1:
+			IF fbEnable.Busy THEN
+				sErrorDetails := 'fbEnable.Busy = TRUE';
+				fbEventHandler(eNapID:=E_Event.SYSTEM_IN_UNEXPECTED_STATE,sMessage:=sErrorDetails);
+				bError := TRUE;	
+			ELSE
+				IF fbEnable.bError THEN
+					fbEventHandler(eNapID:=E_Event.UNABLE_TO_START_TASK,sTrace:=fbEnable.EventTrace);
+					fbEnable.ErrorAck := TRUE;
+					bError := TRUE;
+				ELSE
+					fbEnable.bEnable := FALSE;
+					fbEnable.bStart := TRUE;
+					ChangeInnerState(E_StepperStates.Disabling2);
+				END_IF
+			END_IF
+		E_StepperStates.Disabling2:
+			fbPower(Axis:=stAxis.stAxisRef);
+			IF fbEnable.Busy THEN
+			ELSE
+				IF fbEnable.bError THEN
+					fbEventHandler(eNapID:=E_Event.UNABLE_TO_COMPLETE_TASK,sTrace:=fbEnable.EventTrace);
+					fbEnable.ErrorAck := TRUE;
+					bError := TRUE;
+				ELSIF Enabled=FALSE THEN
+					ChangeInnerState(E_StepperStates.Idle);
+				ELSE
+					sErrorDetails := 'fbEnable.Busy = FALSE, fbEnable.bEnabled=TRUE';
+					fbEventHandler(eNapID:=E_Event.SYSTEM_IN_UNEXPECTED_STATE,sMessage:=sErrorDetails);
+					bError := TRUE;					
+				END_IF
+			END_IF
+	END_CASE
+
+
+States found:
+	eInnerState
+Methods Found:
+	InnerLoopSM
+Method-Case Pairs Found:

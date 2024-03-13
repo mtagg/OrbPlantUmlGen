@@ -1,0 +1,61 @@
+	>>
+	>>Start of Method : OuterLoopSM
+	>>
+	>>
+	CASE CyclicOuterCase(sState:=TO_STRING(eOuterLoopState)) OF
+		E_OuterLoopSM_States.Setup:
+			Setup_0();
+			Setup();
+			IF bActive THEN
+				IF Reset() THEN
+					ChangeOuterState(E_OuterLoopSM_States.Operational);
+				END_IF
+			ELSE
+				ChangeOuterState(E_OuterLoopSM_States.Inactive);
+			END_IF
+		E_OuterLoopSM_States.Operational:
+			ReadStatus();
+			IF bError THEN 
+				IF Disable() THEN
+					ChangeOuterState(E_OuterLoopSM_States.DisabledError);
+				ELSE
+					ChangeOuterState(E_OuterLoopSM_States.DisablingError);
+				END_IF
+			ELSIF bActive THEN 
+				InnerLoopSM();
+			ELSE 
+				IF Disable() THEN 
+					ChangeOuterState(E_OuterLoopSM_States.Inactive);
+				ELSE
+					ChangeOuterState(E_OuterLoopSM_States.DisablingInactive);
+				END_IF
+			END_IF
+		E_OuterLoopSM_States.DisablingInactive:
+			IF Disable() THEN
+				ChangeOuterState(E_OuterLoopSM_States.Inactive);
+			END_IF
+		E_OuterLoopSM_States.Inactive:
+			IF bActive THEN
+				IF Reset() THEN
+					ChangeInnerState(0);
+					ChangeOuterState(E_OuterLoopSM_States.Operational);
+				END_IF
+			END_IF
+		E_OuterLoopSM_States.DisablingError:
+			IF Disable() THEN
+				ChangeOuterState(E_OuterLoopSM_States.DisabledError);
+			END_IF
+		E_OuterLoopSM_States.DisabledError:
+			IF bErrorAck THEN
+				bError := FALSE;
+				bErrorAck := FALSE;
+				ChangeOuterState(E_OuterLoopSM_States.Inactive);
+			END_IF
+	END_CASE
+
+
+States found:
+	eOuterLoopState
+Methods Found:
+	OuterLoopSM
+Method-Case Pairs Found:

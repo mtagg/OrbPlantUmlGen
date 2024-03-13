@@ -1,0 +1,29 @@
+@startuml State Diagram
+
+!theme plain
+'skin rose
+'left to right direction
+hide empty description
+'!theme reddress-lightgreen
+title FB_FootSwitch State Diagram
+
+
+
+state FB_FootSwitch{
+
+state eInnerState #84b1f5 {
+	[*] --> eInnerState_Idle : START
+	state eInnerState_Idle #lightblue {
+state "ERROR" as eInnerState_Idle_ERROR <<exitPoint>> #ff3333
+	}
+	state eInnerState_Running #lightblue {
+state "ERROR" as eInnerState_Running_ERROR <<exitPoint>> #ff3333
+	}
+	}
+eInnerState : 
+eInnerState : 
+
+
+}
+
+@enduml

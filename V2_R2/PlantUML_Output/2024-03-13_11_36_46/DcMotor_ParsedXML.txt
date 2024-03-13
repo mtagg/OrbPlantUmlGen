@@ -1,0 +1,27 @@
+	>>
+	>>Start of Method : InnerLoopSM
+	>>
+	>>
+	CASE CyclicInnerCase(TO_STRING(eInnerState)) OF
+		E_DcMotorStates.Idle:
+			IF bEnable THEN
+				bEnable := FALSE;
+				ChangeInnerState(E_DcMotorStates.Enable1);
+			ELSIF bDisable THEN
+				bDisable := FALSE;
+				ChangeInnerState(E_DcMotorStates.Disable1);
+			END_IF
+		E_DcMotorStates.Enable1:
+			bDriverEnable := TRUE;
+			ChangeInnerState(E_DcMotorStates.Idle);
+		E_DcMotorStates.Disable1:
+			bDriverEnable := FALSE;
+			ChangeInnerState(E_DcMotorStates.Idle);
+	END_CASE
+
+
+States found:
+	eInnerState
+Methods Found:
+	InnerLoopSM
+Method-Case Pairs Found:

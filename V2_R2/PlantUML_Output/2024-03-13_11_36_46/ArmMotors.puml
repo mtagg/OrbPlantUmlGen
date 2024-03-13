@@ -1,0 +1,108 @@
+@startuml State Diagram
+
+!theme plain
+'skin rose
+'left to right direction
+hide empty description
+'!theme reddress-lightgreen
+title FB_ArmMotors State Diagram
+
+
+
+state FB_ArmMotors{
+
+state eInnerState #84b1f5 {
+	[*] --> eInnerState_Idle : START
+	state eInnerState_Idle #lightblue {
+state "ERROR" as eInnerState_Idle_ERROR <<exitPoint>> #ff3333
+	state eInnerState_Idle_Node_0 <<choice>>
+	[*] ---> eInnerState_Idle_Node_0 : START
+	eInnerState_Idle_Node_0 ---> [*] : (bEnable)
+	state eInnerState_Idle_Node_1 <<choice>>
+	eInnerState_Idle_Node_1 ---> [*] : (bDisable)
+	}
+	state eInnerState_EnableMotors1 #lightblue {
+state "ERROR" as eInnerState_EnableMotors1_ERROR <<exitPoint>> #ff3333
+	state eInnerState_EnableMotors1_Node_0 <<choice>>
+	[*] ---> eInnerState_EnableMotors1_Node_0 : START
+	eInnerState_EnableMotors1_Node_0 ---> [*] : (fbMotorSR.Ready\nAND fbMotorSY.Ready\nAND fbMotorE.Ready)
+	state "fbEventHandler(SYSTEM_IN_UNEXPECTED_STATE)" as eInnerState_EnableMotors1_Node_1 
+	}
+	state eInnerState_EnableMotors2 #lightblue {
+state "ERROR" as eInnerState_EnableMotors2_ERROR <<exitPoint>> #ff3333
+	state eInnerState_EnableMotors2_Node_0 <<choice>>
+	[*] ---> eInnerState_EnableMotors2_Node_0 : START
+		state eInnerState_EnableMotors2_Node_1 <<choice>>
+	eInnerState_EnableMotors2_Node_1 ---> [*] : (THIS^.Enabled)
+		state "fbEventHandler(TASK_FAILED)" as eInnerState_EnableMotors2_Node_2 
+		state eInnerState_EnableMotors2_Node_3 <<choice>>
+		state "fbEventHandler(TASK_FAILED)" as eInnerState_EnableMotors2_Node_4 
+		state eInnerState_EnableMotors2_Node_5 <<choice>>
+		state "fbEventHandler(TASK_FAILED)" as eInnerState_EnableMotors2_Node_6 
+		state eInnerState_EnableMotors2_Node_7 <<choice>>
+		state "fbEventHandler(TASK_FAILED)" as eInnerState_EnableMotors2_Node_8 
+	}
+	state eInnerState_DisableMotors1 #lightblue {
+state "ERROR" as eInnerState_DisableMotors1_ERROR <<exitPoint>> #ff3333
+	state eInnerState_DisableMotors1_Node_0 <<choice>>
+	[*] ---> eInnerState_DisableMotors1_Node_0 : START
+	eInnerState_DisableMotors1_Node_0 ---> [*] : (fbMotorSR.Ready\nAND fbMotorSY.Ready\nAND fbMotorE.Ready)
+	state "fbEventHandler(SYSTEM_IN_UNEXPECTED_STATE)" as eInnerState_DisableMotors1_Node_1 
+	}
+	state eInnerState_DisableMotors2 #lightblue {
+state "ERROR" as eInnerState_DisableMotors2_ERROR <<exitPoint>> #ff3333
+	state eInnerState_DisableMotors2_Node_0 <<choice>>
+	[*] ---> eInnerState_DisableMotors2_Node_0 : START
+		state eInnerState_DisableMotors2_Node_1 <<choice>>
+	eInnerState_DisableMotors2_Node_1 ---> [*] : (THIS^.Disabled)
+		state "fbEventHandler(TASK_FAILED)" as eInnerState_DisableMotors2_Node_2 
+		state eInnerState_DisableMotors2_Node_3 <<choice>>
+		state "fbEventHandler(TASK_FAILED)" as eInnerState_DisableMotors2_Node_4 
+		state eInnerState_DisableMotors2_Node_5 <<choice>>
+		state "fbEventHandler(TASK_FAILED)" as eInnerState_DisableMotors2_Node_6 
+		state eInnerState_DisableMotors2_Node_7 <<choice>>
+		state "fbEventHandler(TASK_FAILED)" as eInnerState_DisableMotors2_Node_8 
+	}
+	}
+	eInnerState_Idle ---> eInnerState_EnableMotors1 : (bEnable)
+	eInnerState_Idle_Node_0 ---> eInnerState_Idle_Node_1 : (NOT (bEnable))
+	eInnerState_Idle ---> eInnerState_DisableMotors1 : (bDisable)
+	eInnerState_EnableMotors1 ---> eInnerState_EnableMotors2 : (fbMotorSR.Ready\nAND fbMotorSY.Ready\nAND fbMotorE.Ready)
+	eInnerState_EnableMotors1_Node_0 ---> eInnerState_EnableMotors1_Node_1 : (NOT (fbMotorSR.Ready\nAND fbMotorSY.Ready\nAND fbMotorE.Ready))
+	eInnerState_EnableMotors1_Node_1 ---> eInnerState_EnableMotors1_ERROR : (NOT (fbMotorSR.Ready\nAND fbMotorSY.Ready\nAND fbMotorE.Ready))
+	eInnerState_EnableMotors2_Node_0 ---> eInnerState_EnableMotors2_Node_1 : (fbMotorSR.Ready\nAND fbMotorSY.Ready\nAND fbMotorE.Ready)
+	eInnerState_EnableMotors2 ---> eInnerState_Idle : (THIS^.Enabled)
+	eInnerState_EnableMotors2_Node_1 ---> eInnerState_EnableMotors2_Node_2 : (NOT (THIS^.Enabled))
+	eInnerState_EnableMotors2_Node_2 ---> eInnerState_EnableMotors2_ERROR : (NOT (THIS^.Enabled))
+	eInnerState_EnableMotors2_Node_0 ---> eInnerState_EnableMotors2_Node_3 : (NOT (fbMotorSR.Ready\nAND fbMotorSY.Ready\nAND fbMotorE.Ready))
+	eInnerState_EnableMotors2_Node_3 ---> eInnerState_EnableMotors2_Node_4 : (fbMotorSR.Failed)
+	eInnerState_EnableMotors2_Node_4 ---> eInnerState_EnableMotors2_ERROR : (fbMotorSR.Failed)
+	eInnerState_EnableMotors2_Node_0 ---> eInnerState_EnableMotors2_Node_5 : (NOT (fbMotorSR.Ready\nAND fbMotorSY.Ready\nAND fbMotorE.Ready))
+	eInnerState_EnableMotors2_Node_5 ---> eInnerState_EnableMotors2_Node_6 : (fbMotorSY.Failed)
+	eInnerState_EnableMotors2_Node_6 ---> eInnerState_EnableMotors2_ERROR : (fbMotorSY.Failed)
+	eInnerState_EnableMotors2_Node_0 ---> eInnerState_EnableMotors2_Node_7 : (NOT (fbMotorSR.Ready\nAND fbMotorSY.Ready\nAND fbMotorE.Ready))
+	eInnerState_EnableMotors2_Node_7 ---> eInnerState_EnableMotors2_Node_8 : (fbMotorE.Failed)
+	eInnerState_EnableMotors2_Node_8 ---> eInnerState_EnableMotors2_ERROR : (fbMotorE.Failed)
+	eInnerState_DisableMotors1 ---> eInnerState_DisableMotors2 : (fbMotorSR.Ready\nAND fbMotorSY.Ready\nAND fbMotorE.Ready)
+	eInnerState_DisableMotors1_Node_0 ---> eInnerState_DisableMotors1_Node_1 : (NOT (fbMotorSR.Ready\nAND fbMotorSY.Ready\nAND fbMotorE.Ready))
+	eInnerState_DisableMotors1_Node_1 ---> eInnerState_DisableMotors1_ERROR : (NOT (fbMotorSR.Ready\nAND fbMotorSY.Ready\nAND fbMotorE.Ready))
+	eInnerState_DisableMotors2_Node_0 ---> eInnerState_DisableMotors2_Node_1 : (fbMotorSR.Ready\nAND fbMotorSY.Ready\nAND fbMotorE.Ready)
+	eInnerState_DisableMotors2 ---> eInnerState_Idle : (THIS^.Disabled)
+	eInnerState_DisableMotors2_Node_1 ---> eInnerState_DisableMotors2_Node_2 : (NOT (THIS^.Disabled))
+	eInnerState_DisableMotors2_Node_2 ---> eInnerState_DisableMotors2_ERROR : (NOT (THIS^.Disabled))
+	eInnerState_DisableMotors2_Node_0 ---> eInnerState_DisableMotors2_Node_3 : (NOT (fbMotorSR.Ready\nAND fbMotorSY.Ready\nAND fbMotorE.Ready))
+	eInnerState_DisableMotors2_Node_3 ---> eInnerState_DisableMotors2_Node_4 : (fbMotorSR.Failed)
+	eInnerState_DisableMotors2_Node_4 ---> eInnerState_DisableMotors2_ERROR : (fbMotorSR.Failed)
+	eInnerState_DisableMotors2_Node_0 ---> eInnerState_DisableMotors2_Node_5 : (NOT (fbMotorSR.Ready\nAND fbMotorSY.Ready\nAND fbMotorE.Ready))
+	eInnerState_DisableMotors2_Node_5 ---> eInnerState_DisableMotors2_Node_6 : (fbMotorSY.Failed)
+	eInnerState_DisableMotors2_Node_6 ---> eInnerState_DisableMotors2_ERROR : (fbMotorSY.Failed)
+	eInnerState_DisableMotors2_Node_0 ---> eInnerState_DisableMotors2_Node_7 : (NOT (fbMotorSR.Ready\nAND fbMotorSY.Ready\nAND fbMotorE.Ready))
+	eInnerState_DisableMotors2_Node_7 ---> eInnerState_DisableMotors2_Node_8 : (fbMotorE.Failed)
+	eInnerState_DisableMotors2_Node_8 ---> eInnerState_DisableMotors2_ERROR : (fbMotorE.Failed)
+eInnerState : fbMotorSR();\nfbMotorSY();\nfbMotorE();\n
+eInnerState : 
+
+
+}
+
+@enduml

@@ -1,0 +1,136 @@
+	>>
+	>>Start of Method : InnerLoopSM
+	>>
+	>>
+	fbStepper();
+	fbLinearActuator();
+	fbAllJoints();
+	fbArmMotors();
+	fbFootSwitch();
+	fbTool();
+	fbDock();
+	fbKnS();
+	fbRemoteManipulator();
+	fbSelfTest();
+	fbErgonomics();
+	fbTeleoperation();
+	CASE CyclicInnerCase(TO_STRING(eInnerState)) OF
+		E_ControllerArmStates.Idle:
+			IF bStartSelftest THEN
+				bStartSelftest := FALSE;
+				IF Docked THEN
+					ChangeInnerState(E_ControllerArmStates.Selftest1);
+				ELSE
+					fbEventHandler(eNapID:=E_Event.ARM_UNDOCKED);
+					bError := TRUE;
+				END_IF
+			ELSIF bStartErgonomics THEN
+				bStartErgonomics := FALSE;
+				ChangeInnerState(E_ControllerArmStates.Ergonomics1);
+			ELSIF bStartTeleoperation THEN
+				bStartTeleoperation := FALSE;
+				IF Docked THEN
+					ChangeInnerState(E_ControllerArmStates.Teleoperation1);
+				ELSE
+					fbEventHandler(eNapID:=E_Event.ARM_UNDOCKED);
+					bError := TRUE;
+				END_IF
+			END_IF
+		E_ControllerArmStates.Selftest1:
+			IF fbSelfTest.Busy THEN
+				sErrorDetails := 'fbSelfTest.Busy = TRUE';
+				fbEventHandler(eNapID:=E_Event.SYSTEM_IN_UNEXPECTED_STATE,sMessage:=sErrorDetails);
+				bError := TRUE;
+			ELSE
+				IF fbSelfTest.bError THEN
+					fbEventHandler(eNapID:=E_Event.UNABLE_TO_START_TASK,sTrace:=fbSelfTest.EventTrace);
+					fbSelfTest.ErrorAck:=TRUE;
+					bError := TRUE;
+				ELSE
+					fbSelfTest.bStart:=TRUE;
+					ChangeInnerState(E_ControllerArmStates.Selftest2);
+				END_IF
+			END_IF
+		E_ControllerArmStates.Selftest2:
+			IF fbSelfTest.Busy THEN
+				IF Docked THEN
+				ELSE
+					fbEventHandler(eNapID:=E_Event.ARM_UNDOCKED_UNEXPECTEDLY);
+					bError := TRUE;
+				END_IF
+			ELSE
+				IF fbSelfTest.bError THEN
+					fbEventHandler(eNapID:=E_Event.TASK_FAILED,sTrace:=fbSelfTest.EventTrace);
+					fbSelfTest.ErrorAck:=TRUE;
+					bError := TRUE;
+				ELSE
+					IF Calibrated THEN
+						fbEventHandler(eNapID:=E_Event.REQUEST_COMPLETED,sMessage:='Selftest');
+						ChangeInnerState(E_ControllerArmStates.Idle);
+					ELSE
+						sErrorDetails := 'Calibrated=FALSE';
+						fbEventHandler(eNapID:=E_Event.TASK_FAILED,sMessage:=sErrorDetails);
+						bError := TRUE;
+					END_IF
+				END_IF
+			END_IF
+		E_ControllerArmStates.Ergonomics1:
+			IF fbErgonomics.Busy THEN
+				sErrorDetails := 'fbErgonomics.Busy = TRUE';
+				fbEventHandler(eNapID:=E_Event.SYSTEM_IN_UNEXPECTED_STATE,sMessage:=sErrorDetails);
+				bError := TRUE;
+			ELSE
+				IF fbErgonomics.bError THEN
+					fbEventHandler(eNapID:=E_Event.UNABLE_TO_START_TASK,sTrace:=fbErgonomics.EventTrace);
+					fbErgonomics.ErrorAck:=TRUE;
+					bError := TRUE;
+				ELSE
+					fbErgonomics.bStart := TRUE;
+					ChangeInnerState(E_ControllerArmStates.Ergonomics2);
+				END_IF
+			END_IF
+		E_ControllerArmStates.Ergonomics2:
+			IF fbErgonomics.Busy THEN
+			ELSE
+				IF fbErgonomics.bError THEN
+					fbEventHandler(eNapID:=E_Event.TASK_FAILED,sTrace:=fbErgonomics.EventTrace);
+					fbErgonomics.ErrorAck:=TRUE;
+					bError := TRUE;
+				ELSE
+					ChangeInnerState(E_ControllerArmStates.Idle);
+				END_IF
+			END_IF
+		E_ControllerArmStates.Teleoperation1:
+			IF fbTeleoperation.Busy THEN
+				sErrorDetails := 'fbTeleoperation.Busy = TRUE';
+				fbEventHandler(eNapID:=E_Event.SYSTEM_IN_UNEXPECTED_STATE,sMessage:=sErrorDetails);
+				bError := TRUE;
+			ELSE
+				IF fbTeleoperation.bError THEN
+					fbEventHandler(eNapID:=E_Event.UNABLE_TO_START_TASK,sTrace:=fbTeleoperation.EventTrace);
+					fbTeleoperation.ErrorAck:=TRUE;
+					bError := TRUE;
+				ELSE
+					fbTeleoperation.bStart := TRUE;
+					ChangeInnerState(E_ControllerArmStates.Teleoperation2);
+				END_IF
+			END_IF
+		E_ControllerArmStates.Teleoperation2:
+			IF fbTeleoperation.Busy THEN
+			ELSE
+				IF fbTeleoperation.bError THEN
+					fbEventHandler(eNapID:=E_Event.TASK_FAILED,sTrace:=fbTeleoperation.EventTrace);
+					fbTeleoperation.ErrorAck:=TRUE;
+					bError := TRUE;
+				ELSE
+					ChangeInnerState(E_ControllerArmStates.Idle);
+				END_IF
+			END_IF
+	END_CASE
+
+
+States found:
+	eInnerState
+Methods Found:
+	InnerLoopSM
+Method-Case Pairs Found:

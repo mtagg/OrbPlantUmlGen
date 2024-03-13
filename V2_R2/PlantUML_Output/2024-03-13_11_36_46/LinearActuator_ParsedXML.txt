@@ -1,0 +1,165 @@
+	>>
+	>>Start of Method : InnerLoopSM
+	>>
+	>>
+	fbHoming();
+	fbJogging();
+	fbEnable();
+	CASE CyclicInnerCase(TO_STRING(eInnerState)) OF
+		E_LinearActuatorStates.Idle:
+			IF bEnableAxis THEN
+				bEnableAxis := FALSE;
+				ChangeInnerState(E_LinearActuatorStates.Enabling1);
+			ELSIF bStartHoming THEN
+				bStartHoming := FALSE;
+				ChangeInnerState(E_LinearActuatorStates.Homing1);
+			ELSIF bStartJogging THEN
+				bStartJogging := FALSE;
+				ChangeInnerState(E_LinearActuatorStates.Jogging1);
+			ELSIF bDisableAxis THEN
+				bDisableAxis := FALSE;
+				IF Enabled THEN
+					 ChangeInnerState(E_LinearActuatorStates.Disabling1);
+				END_IF
+			END_IF
+		E_LinearActuatorStates.Enabling1:
+			IF fbEnable.Busy THEN
+				sErrorDetails := 'fbEnable.Busy = TRUE';
+				fbEventHandler(eNapID:=E_Event.SYSTEM_IN_UNEXPECTED_STATE,sMessage:=sErrorDetails);
+				bError := TRUE;	
+			ELSE
+				IF fbEnable.bError THEN
+					fbEventHandler(eNapID:=E_Event.UNABLE_TO_START_TASK,sTrace:=fbEnable.EventTrace);
+					fbEnable.ErrorAck := TRUE;
+					bError := TRUE;
+				ELSE
+					fbEnable.bEnable := TRUE;
+					fbEnable.bStart := TRUE;
+					ChangeInnerState(E_LinearActuatorStates.Enabling2);
+				END_IF
+			END_IF
+		E_LinearActuatorStates.Enabling2:
+			fbPower(Axis:=stAxis.stAxisRef);
+			fbReset(Axis:=stAxis.stAxisRef);
+			IF fbEnable.Busy THEN
+			ELSE
+				IF fbEnable.bError THEN
+					fbEventHandler(eNapID:=E_Event.UNABLE_TO_COMPLETE_TASK,sTrace:=fbEnable.EventTrace);
+					fbEnable.ErrorAck := TRUE;
+					bError := TRUE;
+				ELSIF Enabled=TRUE THEN
+					ChangeInnerState(E_LinearActuatorStates.Idle);
+				ELSE
+					sErrorDetails := 'fbEnable.Busy = FALSE, fbEnable.bEnabled=FALSE';
+					fbEventHandler(eNapID:=E_Event.UNABLE_TO_COMPLETE_TASK,sMessage:=sErrorDetails);
+					bError := TRUE;					
+				END_IF
+			END_IF
+		E_LinearActuatorStates.Homing1:
+			IF fbHoming.Busy THEN
+				sErrorDetails := 'fbHoming.Busy = TRUE';
+				fbEventHandler(eNapID:=E_Event.SYSTEM_IN_UNEXPECTED_STATE,sMessage:=sErrorDetails);
+				bError := TRUE;	
+			ELSE
+				IF fbHoming.bError THEN
+					fbEventHandler(eNapID:=E_Event.UNABLE_TO_START_TASK,sTrace:=fbHoming.EventTrace);
+					fbHoming.ErrorAck := TRUE;
+					bError := TRUE;
+				ELSE
+					fbHoming.bStart:=TRUE;
+					ChangeInnerState(E_LinearActuatorStates.Homing2);
+				END_IF
+			END_IF
+		E_LinearActuatorStates.Homing2:
+			fbPower(Axis:=stAxis.stAxisRef);
+			fbReset(Axis:=stAxis.stAxisRef);
+			fbJog(Axis:=stAxis.stAxisRef);
+			IF fbHoming.Busy THEN
+			ELSE
+				IF fbHoming.bError THEN
+					fbEventHandler(eNapID:=E_Event.TASK_FAILED,sTrace:=fbHoming.EventTrace);
+					fbHoming.ErrorAck:=TRUE;
+					bError := TRUE;
+				ELSE
+					IF Homed THEN
+						fbEventHandler(eNapID:=E_Event.REQUEST_COMPLETED);
+						ChangeInnerState(E_LinearActuatorStates.Idle);
+					ELSE
+						sErrorDetails := 'Homed=FALSE';
+						fbEventHandler(eNapID:=E_Event.TASK_FAILED,sMessage:=sErrorDetails);
+						bError := TRUE;
+					END_IF
+				END_IF
+			END_IF
+		E_LinearActuatorStates.Jogging1:
+			IF fbJogging.Busy THEN
+				sErrorDetails := 'fbJogging.Busy = TRUE';
+				fbEventHandler(eNapID:=E_Event.SYSTEM_IN_UNEXPECTED_STATE,sMessage:=sErrorDetails);
+				bError := TRUE;	
+			ELSE
+				IF fbJogging.bError THEN
+					fbEventHandler(eNapID:=E_Event.UNABLE_TO_START_TASK,sTrace:=fbJogging.EventTrace);
+					fbJogging.ErrorAck := TRUE;
+					bError := TRUE;
+				ELSE
+					fbJogging.eDirection := THIS^.eJogDirection;
+					fbJogging.bStart:=TRUE;
+					ChangeInnerState(E_LinearActuatorStates.Jogging2);
+				END_IF
+			END_IF
+		E_LinearActuatorStates.Jogging2:
+			fbPower(Axis:=stAxis.stAxisRef);
+			fbReset(Axis:=stAxis.stAxisRef);
+			fbJog(Axis:=stAxis.stAxisRef);
+			IF fbJogging.Busy THEN
+			ELSE
+				IF fbJogging.bError THEN
+					fbEventHandler(eNapID:=E_Event.UNABLE_TO_START_TASK,sTrace:=fbJogging.EventTrace);
+					fbJogging.ErrorAck := TRUE;
+					bError := TRUE;
+				ELSE
+					ChangeInnerState(E_LinearActuatorStates.Idle);
+				END_IF
+			END_IF
+		E_LinearActuatorStates.MovingAbs:
+			{warning 'MT TODO add abs movement to lienar actuator????'}
+		E_LinearActuatorStates.Disabling1:
+			IF fbEnable.Busy THEN
+				sErrorDetails := 'fbEnable.Busy = TRUE';
+				fbEventHandler(eNapID:=E_Event.SYSTEM_IN_UNEXPECTED_STATE,sMessage:=sErrorDetails);
+				bError := TRUE;	
+			ELSE
+				IF fbEnable.bError THEN
+					fbEventHandler(eNapID:=E_Event.UNABLE_TO_START_TASK,sTrace:=fbEnable.EventTrace);
+					fbEnable.ErrorAck := TRUE;
+					bError := TRUE;
+				ELSE
+					fbEnable.bEnable := FALSE;
+					fbEnable.bStart := TRUE;
+					ChangeInnerState(E_LinearActuatorStates.Disabling2);
+				END_IF
+			END_IF
+		E_LinearActuatorStates.Disabling2:
+			fbPower(Axis:=stAxis.stAxisRef);
+			IF fbEnable.Busy THEN
+			ELSE
+				IF fbEnable.bError THEN
+					fbEventHandler(eNapID:=E_Event.UNABLE_TO_START_TASK,sTrace:=fbEnable.EventTrace);
+					fbEnable.ErrorAck := TRUE;
+					bError := TRUE;
+				ELSIF Enabled=FALSE THEN
+					ChangeInnerState(E_LinearActuatorStates.Idle);
+				ELSE
+					sErrorDetails := 'fbEnable.Busy = FALSE, fbEnable.bEnabled=TRUE';
+					fbEventHandler(eNapID:=E_Event.SYSTEM_IN_UNEXPECTED_STATE,sMessage:=sErrorDetails);
+					bError := TRUE;					
+				END_IF
+			END_IF
+	END_CASE
+
+
+States found:
+	eInnerState
+Methods Found:
+	InnerLoopSM
+Method-Case Pairs Found:

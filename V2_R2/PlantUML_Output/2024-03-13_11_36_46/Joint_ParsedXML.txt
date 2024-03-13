@@ -1,0 +1,104 @@
+	>>
+	>>Start of Method : InnerLoopSM
+	>>
+	>>
+	fbAbsEncoder();
+	fbIncEncoder();
+	CASE CyclicInnerCase(TO_STRING(eInnerState)) OF
+		E_JointStates.Idle:
+			IF bStartCalibration THEN
+				bStartCalibration := FALSE;
+				IF bDualEncoderJoint OR bSingleAbsoluteJoint THEN
+					ChangeInnerState(E_JointStates.SetAbsEncNC_Params1);
+				ELSE
+					ChangeInnerState(E_JointStates.SetIncEncNC_Params1);
+				END_IF
+			ELSIF THIS^.Calibrated THEN
+				IF UpdateAngles() = FALSE THEN
+					bError := TRUE;
+				ELSIF EncoderCrossCheck() = FALSE THEN
+					bError := TRUE;
+				END_IF
+			END_IF
+		E_JointStates.SetAbsEncNC_Params1:
+			IF fbAbsEncoder.Busy THEN
+				sErrorDetails := 'fbAbsEncoder.Busy = TRUE';
+				fbEventHandler(eNapID:=E_Event.SYSTEM_IN_UNEXPECTED_STATE,sMessage:=sErrorDetails);
+				bError := TRUE;
+			ELSE
+				IF fbAbsEncoder.bError THEN
+					fbEventHandler(eNapID:=E_Event.UNABLE_TO_START_TASK,sTrace:=fbAbsEncoder.EventTrace);
+					fbAbsEncoder.ErrorAck:=TRUE;
+					bError := TRUE;
+				ELSE
+					fbAbsEncoder.bStartCalibration:=TRUE;
+					ChangeInnerState(E_JointStates.SetAbsEncNC_Params2);
+				END_IF
+			END_IF
+		E_JointStates.SetAbsEncNC_Params2:
+			IF fbAbsEncoder.Busy THEN
+			ELSE
+				IF fbAbsEncoder.bError THEN
+					fbEventHandler(eNapID:=E_Event.TASK_FAILED,sTrace:=fbAbsEncoder.EventTrace);
+					fbAbsEncoder.ErrorAck:=TRUE;
+					bError := TRUE;
+				ELSE
+					IF fbAbsEncoder.Calibrated THEN
+						IF bDualEncoderJoint THEN
+							fbIncEncoder.bHomePositionOverride := TRUE;
+							IF bVariableOffsetJoint THEN
+								fbIncEncoder.fHomePositionOverride := fbAbsEncoder.Angle + fVariableOffset;
+							ELSE
+								fbIncEncoder.fHomePositionOverride := fbAbsEncoder.Angle;
+							END_IF
+							ChangeInnerState(E_JointStates.SetIncEncNC_Params1);
+						ELSE
+							ChangeInnerState(E_JointStates.Idle);
+						END_IF	
+					ELSE
+						sErrorDetails := 'fbAbsEncoder.Calibrated=FALSE';
+						fbEventHandler(eNapID:=E_Event.TASK_FAILED,sMessage:=sErrorDetails);
+						bError := TRUE;
+					END_IF
+				END_IF
+			END_IF
+		E_JointStates.SetIncEncNC_Params1:
+			IF fbIncEncoder.Busy THEN
+				sErrorDetails := 'fbIncEncoder.Busy = TRUE';
+				fbEventHandler(eNapID:=E_Event.SYSTEM_IN_UNEXPECTED_STATE,sMessage:=sErrorDetails);
+				bError := TRUE;
+			ELSE
+				IF fbIncEncoder.bError THEN
+					fbEventHandler(eNapID:=E_Event.UNABLE_TO_START_TASK,sTrace:=fbIncEncoder.EventTrace);
+					fbIncEncoder.ErrorAck:=TRUE;
+					bError := TRUE;
+				ELSE
+					fbIncEncoder.bStartCalibration:=TRUE;
+					ChangeInnerState(E_JointStates.SetIncEncNC_Params2);
+				END_IF
+			END_IF
+		E_JointStates.SetIncEncNC_Params2:
+			IF fbIncEncoder.Busy THEN
+			ELSE
+				IF fbIncEncoder.bError THEN
+					fbEventHandler(eNapID:=E_Event.TASK_FAILED,sTrace:=fbIncEncoder.EventTrace);
+					fbIncEncoder.ErrorAck:=TRUE;
+					bError := TRUE;
+				ELSE
+					IF fbIncEncoder.Calibrated THEN
+						ChangeInnerState(E_JointStates.Idle);
+					ELSE
+						sErrorDetails := 'fbIncEncoder.Calibrated=FALSE';
+						fbEventHandler(eNapID:=E_Event.TASK_FAILED,sMessage:=sErrorDetails);
+						bError := TRUE;
+					END_IF
+				END_IF
+			END_IF
+	END_CASE
+
+
+States found:
+	eInnerState
+Methods Found:
+	InnerLoopSM
+Method-Case Pairs Found:

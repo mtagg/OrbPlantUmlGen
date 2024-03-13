@@ -1,0 +1,79 @@
+	>>
+	>>Start of Method : InnerLoopSM
+	>>
+	>>
+	CASE CyclicInnerCase(TO_STRING(eInnerState)) OF
+		E_LinearActuatorJogStates.Idle:
+			IF bStart THEN
+				bStart := FALSE;
+				ChangeInnerState(E_LinearActuatorJogStates.CheckIfEnabled);
+			END_IF
+		E_LinearActuatorJogStates.CheckIfEnabled:
+			IF fbPower.Status THEN
+				ChangeInnerState(E_LinearActuatorJogStates.Jog1);
+			ELSE
+				ChangeInnerState(E_LinearActuatorJogStates.EnableAxis1);
+			END_IF
+		E_LinearActuatorJogStates.EnableAxis1:
+			fbPower(Axis:=stParent.stAxisRef,Enable:=TRUE, Enable_Positive := TRUE, Enable_Negative := TRUE);
+			nPLC_Cycles := 0;
+			ChangeInnerState(E_LinearActuatorJogStates.EnableAxis2);
+		E_LinearActuatorJogStates.EnableAxis2:
+			nPLC_Cycles := nPLC_Cycles +1; 
+			IF fbPower.Error THEN
+				fbEventHandler(nBeckhoffID:=fbPower.ErrorID);
+				bError := TRUE;
+			ELSIF fbPower.Status = TRUE THEN 
+				fbReset(Axis:=stParent.stAxisRef,Execute:=FALSE); 
+				ChangeInnerState(E_LinearActuatorJogStates.Jog1);
+			ELSE
+				IF nPLC_Cycles > SystemConfig.nLINEAR_ACTUATOR_MAX_CYCLES_TO_ENABLE THEN
+					fbEventHandler(eNapID:=E_Event.ENABLE_NOT_DONE_IN_ALLOTED_TIME);
+					bError := TRUE;
+				ELSE
+				END_IF
+			END_IF
+		E_LinearActuatorJogStates.Jog1:
+			IF fbJog.Busy THEN
+				sErrorDetails := 'fbJog.Busy = TRUE';
+				fbEventHandler(eNapID:=E_Event.SYSTEM_IN_UNEXPECTED_STATE,sMessage:=sErrorDetails);
+				bError := TRUE;	
+			ELSE
+				IF fbJog.Error THEN
+					fbEventHandler(eNapID:=E_Event.UNABLE_TO_START_TASK,  nBeckhoffID:=fbJog.ErrorID);
+					bError := TRUE;
+				ELSE
+					{warning 'MT TODO: Add jog timer start here'}
+					SetLinearActuatorJog();
+					ChangeInnerState(E_LinearActuatorJogStates.Jog2);
+				END_IF
+			END_IF
+		E_LinearActuatorJogStates.Jog2:
+			IF fbJog.Busy THEN
+			ELSE
+				IF fbJog.Error THEN
+					fbEventHandler(nBeckhoffID:=fbJog.ErrorID);
+					bError := TRUE;
+				ELSIF fbJog.CommandAborted THEN
+					fbEventHandler(eNapID:=E_Event.MC2_JOG_COMMAND_ABORTED);
+					bError := TRUE;
+				ELSIF fbJog.Done THEN
+					fbJog(Axis:=stParent.stAxisRef,JogForward:=FALSE, JogBackwards:=FALSE);
+					ChangeInnerState(E_LinearActuatorJogStates.Idle);
+				ELSIF eDirection = E_LinearActuatorMovingDirection.None THEN
+					fbJog(Axis:=stParent.stAxisRef,JogForward:=FALSE, JogBackwards:=FALSE);
+					ChangeInnerState(E_LinearActuatorJogStates.Idle);
+				ELSE
+					fbEventHandler(eNapID:=E_Event.SYSTEM_IN_UNEXPECTED_STATE);
+					fbJog(Axis:=stParent.stAxisRef,JogForward:=FALSE, JogBackwards:=FALSE);
+					bError := TRUE;
+				END_IF
+			END_IF
+	END_CASE
+
+
+States found:
+	eInnerState
+Methods Found:
+	InnerLoopSM
+Method-Case Pairs Found:

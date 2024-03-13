@@ -1,0 +1,97 @@
+	>>
+	>>Start of Method : InnerLoopSM
+	>>
+	>>
+	fbJointSR();
+	fbJointSY();
+	fbJointE();
+	fbJointG1();
+	fbJointG2();
+	fbJointG3();
+	CASE CyclicInnerCase(TO_STRING(eInnerState)) OF
+		E_AllJointsStates.Idle:
+			IF bStartCalibration THEN
+				bStartCalibration := FALSE;
+				ChangeInnerState(E_AllJointsStates.CalibrateAllButElbow1);
+			ELSIF THIS^.Calibrated THEN
+				IF UpdateJoints() = FALSE THEN
+					bError := TRUE;
+				END_IF
+			END_IF
+		E_AllJointsStates.CalibrateAllButElbow1:
+			IF fbJointSR.Ready AND fbJointSY.Ready AND fbJointG1.Ready AND fbJointG2.Ready AND fbJointG3.Ready THEN
+				fbJointSR.bStartCalibration := TRUE;
+				fbJointSY.bStartCalibration := TRUE;
+				// fbJointE.bStartCalibration := TRUE; 
+				fbJointG1.bStartCalibration := TRUE;
+				fbJointG2.bStartCalibration := TRUE;
+				fbJointG3.bStartCalibration := TRUE;
+				ChangeInnerState(E_AllJointsStates.CalibrateAllButElbow2);
+			ELSE
+				fbEventHandler(eNapID:=E_Event.SYSTEM_IN_UNEXPECTED_STATE,sMessage:=ListJointsReady());
+				bError := TRUE;	
+			END_IF
+		E_AllJointsStates.CalibrateAllButElbow2:
+			IF fbJointSR.Ready AND fbJointSY.Ready AND fbJointG1.Ready AND fbJointG2.Ready AND fbJointG3.Ready THEN
+				ChangeInnerState(E_AllJointsStates.CalibrateElbow1);
+			ELSE
+				IF fbJointSR.Failed THEN
+					fbEventHandler(eNapID:=E_Event.TASK_FAILED,sTrace:=fbJointSR.EventTrace);
+					fbJointSR.ErrorAck:=TRUE;
+					bError := TRUE;
+				END_IF
+				IF fbJointSY.Failed THEN
+					fbEventHandler(eNapID:=E_Event.TASK_FAILED,sTrace:=fbJointSY.EventTrace);
+					fbJointSY.ErrorAck:=TRUE;
+					bError := TRUE;
+				END_IF
+				IF fbJointG1.Failed THEN
+					fbEventHandler(eNapID:=E_Event.TASK_FAILED,sTrace:=fbJointG1.EventTrace);
+					fbJointG1.ErrorAck:=TRUE;
+					bError := TRUE;
+				END_IF
+				IF fbJointG2.Failed THEN
+					fbEventHandler(eNapID:=E_Event.TASK_FAILED,sTrace:=fbJointG2.EventTrace);
+					fbJointG2.ErrorAck:=TRUE;
+					bError := TRUE;
+				END_IF
+				IF fbJointG3.Failed THEN
+					fbEventHandler(eNapID:=E_Event.TASK_FAILED,sTrace:=fbJointG3.EventTrace);
+					fbJointG3.ErrorAck:=TRUE;
+					bError := TRUE;
+				END_IF
+			END_IF
+		E_AllJointsStates.CalibrateElbow1:
+			IF fbJointE.Ready THEN
+				fbJointE.fVariableOffset := fbJointSY.JointAngle;
+				fbJointE.bStartCalibration := TRUE;
+				ChangeInnerState(E_AllJointsStates.CalibrateElbow2);
+			ELSE	
+				sErrorDetails := 'E Ready = FALSE';
+				fbEventHandler(eNapID:=E_Event.SYSTEM_IN_UNEXPECTED_STATE,sMessage:=sErrorDetails);
+				bError := TRUE;	
+			END_IF
+		E_AllJointsStates.CalibrateElbow2:
+			IF fbJointE.Ready THEN
+				IF THIS^.Calibrated THEN
+					fbEventHandler(eNapID:=E_Event.REQUEST_COMPLETED);
+					ChangeInnerState(E_AllJointsStates.Idle);	
+				ELSE
+					fbEventHandler(eNapID:=E_Event.TASK_FAILED,sMessage:=ListJointsCalibrated());
+					bError := TRUE;	
+				END_IF
+			ELSE
+				IF fbJointE.Failed THEN
+					fbEventHandler(eNapID:=E_Event.TASK_FAILED,sTrace:=fbJointE.EventTrace);
+					fbJointE.ErrorAck:=TRUE;
+					bError := TRUE;
+				END_IF
+			END_IF
+	END_CASE
+
+
+States found:
+	eInnerState
+Methods Found:
+	InnerLoopSM
+Method-Case Pairs Found:

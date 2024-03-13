@@ -1,0 +1,197 @@
+@startuml State Diagram
+
+!theme plain
+'skin rose
+'left to right direction
+hide empty description
+'!theme reddress-lightgreen
+title FB_Ergonomics State Diagram
+
+
+
+state FB_Ergonomics{
+
+state eInnerState #84b1f5 {
+	[*] --> eInnerState_Idle : START
+	state eInnerState_Idle #lightblue {
+state "ERROR" as eInnerState_Idle_ERROR <<exitPoint>> #ff3333
+	state eInnerState_Idle_Node_0 <<choice>>
+	[*] ---> eInnerState_Idle_Node_0 : START
+		state eInnerState_Idle_Node_1 <<choice>>
+	eInnerState_Idle_Node_1 ---> [*] : (fbStepper.Homed\nAND fbLinearActuator.Homed)
+		state "fbEventHandler(UNABLE_TO_START_TASK)" as eInnerState_Idle_Node_2 
+	}
+	state eInnerState_EnableAxes1 #lightblue {
+state "ERROR" as eInnerState_EnableAxes1_ERROR <<exitPoint>> #ff3333
+	state eInnerState_EnableAxes1_Node_0 <<choice>>
+	[*] ---> eInnerState_EnableAxes1_Node_0 : START
+	state "fbEventHandler(SYSTEM_IN_UNEXPECTED_STATE)" as eInnerState_EnableAxes1_Node_1 
+	eInnerState_EnableAxes1_Node_0 ---> [*] : ((fbStepper.Ready\nAND fbLinearActuator.Ready))
+	}
+	state eInnerState_EnableAxes2 #lightblue {
+state "ERROR" as eInnerState_EnableAxes2_ERROR <<exitPoint>> #ff3333
+	state eInnerState_EnableAxes2_Node_0 <<choice>>
+	[*] ---> eInnerState_EnableAxes2_Node_0 : START
+	state eInnerState_EnableAxes2_Node_1 <<choice>>
+	state "fbEventHandler(UNABLE_TO_COMPLETE_TASK)" as eInnerState_EnableAxes2_Node_2 
+		state eInnerState_EnableAxes2_Node_3 <<choice>>
+		state eInnerState_EnableAxes2_Node_4 <<choice>>
+		state "fbEventHandler(UNABLE_TO_COMPLETE_TASK)" as eInnerState_EnableAxes2_Node_5 
+		state eInnerState_EnableAxes2_Node_6 <<choice>>
+	eInnerState_EnableAxes2_Node_6 ---> [*] : (NOT bMotorsDisabled)
+	}
+	state eInnerState_WaitForCommand #lightblue {
+state "ERROR" as eInnerState_WaitForCommand_ERROR <<exitPoint>> #ff3333
+	state eInnerState_WaitForCommand_Node_0 <<choice>>
+	[*] ---> eInnerState_WaitForCommand_Node_0 : START
+	eInnerState_WaitForCommand_Node_0 ---> [*] : (stErgoCommands.Done\nOR bStop)
+		state eInnerState_WaitForCommand_Node_1 <<choice>>
+	eInnerState_WaitForCommand_Node_1 ---> [*] : (stErgoCommands.bApplyUserConfig_FE)
+		state eInnerState_WaitForCommand_Node_2 <<choice>>
+	eInnerState_WaitForCommand_Node_2 ---> [*] : (StepperJogRequired())
+		state eInnerState_WaitForCommand_Node_3 <<choice>>
+	eInnerState_WaitForCommand_Node_3 ---> [*] : (LinActuatorJogRequired())
+	}
+	state eInnerState_SetStepperAngle1 #lightblue {
+state "ERROR" as eInnerState_SetStepperAngle1_ERROR <<exitPoint>> #ff3333
+	state eInnerState_SetStepperAngle1_Node_0 <<choice>>
+	[*] ---> eInnerState_SetStepperAngle1_Node_0 : START
+	state "fbEventHandler(SYSTEM_IN_UNEXPECTED_STATE)" as eInnerState_SetStepperAngle1_Node_1 
+		state eInnerState_SetStepperAngle1_Node_2 <<choice>>
+		state "fbEventHandler(UNABLE_TO_START_TASK)" as eInnerState_SetStepperAngle1_Node_3 
+	eInnerState_SetStepperAngle1_Node_2 ---> [*] : (NOT (fbStepper.bError))
+	}
+	state eInnerState_SetStepperAngle2 #lightblue {
+state "ERROR" as eInnerState_SetStepperAngle2_ERROR <<exitPoint>> #ff3333
+	state eInnerState_SetStepperAngle2_Node_0 <<choice>>
+	[*] ---> eInnerState_SetStepperAngle2_Node_0 : START
+		state eInnerState_SetStepperAngle2_Node_1 <<choice>>
+		state "fbEventHandler(UNABLE_TO_COMPLETE_TASK)" as eInnerState_SetStepperAngle2_Node_2 
+	eInnerState_SetStepperAngle2_Node_1 ---> [*] : (NOT (fbStepper.bError))
+	}
+	state eInnerState_JogStepper1 #lightblue {
+state "ERROR" as eInnerState_JogStepper1_ERROR <<exitPoint>> #ff3333
+	state eInnerState_JogStepper1_Node_0 <<choice>>
+	[*] ---> eInnerState_JogStepper1_Node_0 : START
+	state "fbEventHandler(SYSTEM_IN_UNEXPECTED_STATE)" as eInnerState_JogStepper1_Node_1 
+		state eInnerState_JogStepper1_Node_2 <<choice>>
+		state "fbEventHandler(UNABLE_TO_START_TASK)" as eInnerState_JogStepper1_Node_3 
+	eInnerState_JogStepper1_Node_2 ---> [*] : (NOT (fbStepper.bError))
+	}
+	state eInnerState_JogStepper2 #lightblue {
+state "ERROR" as eInnerState_JogStepper2_ERROR <<exitPoint>> #ff3333
+	state eInnerState_JogStepper2_Node_0 <<choice>>
+	[*] ---> eInnerState_JogStepper2_Node_0 : START
+		state eInnerState_JogStepper2_Node_1 <<choice>>
+		state "fbEventHandler(UNABLE_TO_COMPLETE_TASK)" as eInnerState_JogStepper2_Node_2 
+	eInnerState_JogStepper2_Node_1 ---> [*] : (NOT (fbStepper.bError))
+	}
+	state eInnerState_JogLinActuator1 #lightblue {
+state "ERROR" as eInnerState_JogLinActuator1_ERROR <<exitPoint>> #ff3333
+	state eInnerState_JogLinActuator1_Node_0 <<choice>>
+	[*] ---> eInnerState_JogLinActuator1_Node_0 : START
+	state "fbEventHandler(SYSTEM_IN_UNEXPECTED_STATE)" as eInnerState_JogLinActuator1_Node_1 
+		state eInnerState_JogLinActuator1_Node_2 <<choice>>
+		state "fbEventHandler(UNABLE_TO_START_TASK)" as eInnerState_JogLinActuator1_Node_3 
+	eInnerState_JogLinActuator1_Node_2 ---> [*] : (NOT (fbLinearActuator.bError))
+	}
+	state eInnerState_JogLinActuator2 #lightblue {
+state "ERROR" as eInnerState_JogLinActuator2_ERROR <<exitPoint>> #ff3333
+	state eInnerState_JogLinActuator2_Node_0 <<choice>>
+	[*] ---> eInnerState_JogLinActuator2_Node_0 : START
+		state eInnerState_JogLinActuator2_Node_1 <<choice>>
+		state "fbEventHandler(UNABLE_TO_COMPLETE_TASK)" as eInnerState_JogLinActuator2_Node_2 
+	eInnerState_JogLinActuator2_Node_1 ---> [*] : (NOT (fbLinearActuator.bError))
+	}
+	state eInnerState_DisableMotors1 #lightblue {
+state "ERROR" as eInnerState_DisableMotors1_ERROR <<exitPoint>> #ff3333
+	state eInnerState_DisableMotors1_Node_0 <<choice>>
+	[*] ---> eInnerState_DisableMotors1_Node_0 : START
+	state "fbEventHandler(SYSTEM_IN_UNEXPECTED_STATE)" as eInnerState_DisableMotors1_Node_1 
+	eInnerState_DisableMotors1_Node_0 ---> [*] : ((fbStepper.Ready\nAND fbLinearActuator.Ready))
+	}
+	state eInnerState_DisableMotors2 #lightblue {
+state "ERROR" as eInnerState_DisableMotors2_ERROR <<exitPoint>> #ff3333
+	state eInnerState_DisableMotors2_Node_0 <<choice>>
+	[*] ---> eInnerState_DisableMotors2_Node_0 : START
+	state eInnerState_DisableMotors2_Node_1 <<choice>>
+	state "fbEventHandler(UNABLE_TO_COMPLETE_TASK)" as eInnerState_DisableMotors2_Node_2 
+		state eInnerState_DisableMotors2_Node_3 <<choice>>
+		state eInnerState_DisableMotors2_Node_4 <<choice>>
+		state "fbEventHandler(UNABLE_TO_COMPLETE_TASK)" as eInnerState_DisableMotors2_Node_5 
+		state eInnerState_DisableMotors2_Node_6 <<choice>>
+	eInnerState_DisableMotors2_Node_6 ---> [*] : (bMotorsDisabled)
+	}
+	}
+	eInnerState_Idle_Node_0 ---> eInnerState_Idle_Node_1 : (bStart)
+	eInnerState_Idle ---> eInnerState_EnableAxes1 : (fbStepper.Homed\nAND fbLinearActuator.Homed)
+	eInnerState_Idle_Node_1 ---> eInnerState_Idle_Node_2 : (NOT (fbStepper.Homed\nAND fbLinearActuator.Homed))
+	eInnerState_Idle_Node_2 ---> eInnerState_Idle_ERROR : (NOT (fbStepper.Homed\nAND fbLinearActuator.Homed))
+	eInnerState_EnableAxes1_Node_0 ---> eInnerState_EnableAxes1_Node_1 : (NOT (fbStepper.Ready\nAND fbLinearActuator.Ready))
+	eInnerState_EnableAxes1_Node_1 ---> eInnerState_EnableAxes1_ERROR : (NOT (fbStepper.Ready\nAND fbLinearActuator.Ready))
+	eInnerState_EnableAxes1 ---> eInnerState_EnableAxes2 : ((fbStepper.Ready\nAND fbLinearActuator.Ready))
+	eInnerState_EnableAxes2_Node_0 ---> eInnerState_EnableAxes2_Node_1 : (NOT (fbLinearActuator.Busy))
+	eInnerState_EnableAxes2_Node_1 ---> eInnerState_EnableAxes2_Node_2 : (fbLinearActuator.bError)
+	eInnerState_EnableAxes2_Node_2 ---> eInnerState_EnableAxes2_ERROR : (fbLinearActuator.bError)
+	eInnerState_EnableAxes2_Node_0 ---> eInnerState_EnableAxes2_Node_3 : (fbLinearActuator.Busy)
+	eInnerState_EnableAxes2_Node_3 ---> eInnerState_EnableAxes2_Node_4 : (NOT (fbStepper.Busy))
+	eInnerState_EnableAxes2_Node_4 ---> eInnerState_EnableAxes2_Node_5 : (fbStepper.bError)
+	eInnerState_EnableAxes2_Node_5 ---> eInnerState_EnableAxes2_ERROR : (fbStepper.bError)
+	eInnerState_EnableAxes2_Node_0 ---> eInnerState_EnableAxes2_Node_6 : (fbLinearActuator.Busy)
+	eInnerState_EnableAxes2 ---> eInnerState_WaitForCommand : (NOT bMotorsDisabled)
+	eInnerState_WaitForCommand ---> eInnerState_DisableMotors1 : (stErgoCommands.Done\nOR bStop)
+	eInnerState_WaitForCommand_Node_0 ---> eInnerState_WaitForCommand_Node_1 : (NOT (stErgoCommands.Done\nOR bStop))
+	eInnerState_WaitForCommand ---> eInnerState_SetStepperAngle1 : (stErgoCommands.bApplyUserConfig_FE)
+	eInnerState_WaitForCommand_Node_1 ---> eInnerState_WaitForCommand_Node_2 : (NOT (stErgoCommands.bApplyUserConfig_FE))
+	eInnerState_WaitForCommand ---> eInnerState_JogStepper1 : (StepperJogRequired())
+	eInnerState_WaitForCommand_Node_2 ---> eInnerState_WaitForCommand_Node_3 : (NOT (StepperJogRequired()))
+	eInnerState_WaitForCommand ---> eInnerState_JogLinActuator1 : (LinActuatorJogRequired())
+	eInnerState_SetStepperAngle1_Node_0 ---> eInnerState_SetStepperAngle1_Node_1 : (fbStepper.Busy)
+	eInnerState_SetStepperAngle1_Node_1 ---> eInnerState_SetStepperAngle1_ERROR : (fbStepper.Busy)
+	eInnerState_SetStepperAngle1_Node_0 ---> eInnerState_SetStepperAngle1_Node_2 : (NOT (fbStepper.Busy))
+	eInnerState_SetStepperAngle1_Node_2 ---> eInnerState_SetStepperAngle1_Node_3 : (fbStepper.bError)
+	eInnerState_SetStepperAngle1_Node_3 ---> eInnerState_SetStepperAngle1_ERROR : (fbStepper.bError)
+	eInnerState_SetStepperAngle1 ---> eInnerState_SetStepperAngle2 : (NOT (fbStepper.bError))
+	eInnerState_SetStepperAngle2_Node_0 ---> eInnerState_SetStepperAngle2_Node_1 : (NOT (fbStepper.Busy))
+	eInnerState_SetStepperAngle2_Node_1 ---> eInnerState_SetStepperAngle2_Node_2 : (fbStepper.bError)
+	eInnerState_SetStepperAngle2_Node_2 ---> eInnerState_SetStepperAngle2_ERROR : (fbStepper.bError)
+	eInnerState_SetStepperAngle2 ---> eInnerState_WaitForCommand : (NOT (fbStepper.bError))
+	eInnerState_JogStepper1_Node_0 ---> eInnerState_JogStepper1_Node_1 : (fbStepper.Busy)
+	eInnerState_JogStepper1_Node_1 ---> eInnerState_JogStepper1_ERROR : (fbStepper.Busy)
+	eInnerState_JogStepper1_Node_0 ---> eInnerState_JogStepper1_Node_2 : (NOT (fbStepper.Busy))
+	eInnerState_JogStepper1_Node_2 ---> eInnerState_JogStepper1_Node_3 : (fbStepper.bError)
+	eInnerState_JogStepper1_Node_3 ---> eInnerState_JogStepper1_ERROR : (fbStepper.bError)
+	eInnerState_JogStepper1 ---> eInnerState_JogStepper2 : (NOT (fbStepper.bError))
+	eInnerState_JogStepper2_Node_0 ---> eInnerState_JogStepper2_Node_1 : (NOT (fbStepper.Busy))
+	eInnerState_JogStepper2_Node_1 ---> eInnerState_JogStepper2_Node_2 : (fbStepper.bError)
+	eInnerState_JogStepper2_Node_2 ---> eInnerState_JogStepper2_ERROR : (fbStepper.bError)
+	eInnerState_JogStepper2 ---> eInnerState_WaitForCommand : (NOT (fbStepper.bError))
+	eInnerState_JogLinActuator1_Node_0 ---> eInnerState_JogLinActuator1_Node_1 : (fbLinearActuator.Busy)
+	eInnerState_JogLinActuator1_Node_1 ---> eInnerState_JogLinActuator1_ERROR : (fbLinearActuator.Busy)
+	eInnerState_JogLinActuator1_Node_0 ---> eInnerState_JogLinActuator1_Node_2 : (NOT (fbLinearActuator.Busy))
+	eInnerState_JogLinActuator1_Node_2 ---> eInnerState_JogLinActuator1_Node_3 : (fbLinearActuator.bError)
+	eInnerState_JogLinActuator1_Node_3 ---> eInnerState_JogLinActuator1_ERROR : (fbLinearActuator.bError)
+	eInnerState_JogLinActuator1 ---> eInnerState_JogLinActuator2 : (NOT (fbLinearActuator.bError))
+	eInnerState_JogLinActuator2_Node_0 ---> eInnerState_JogLinActuator2_Node_1 : (NOT (fbLinearActuator.Busy))
+	eInnerState_JogLinActuator2_Node_1 ---> eInnerState_JogLinActuator2_Node_2 : (fbLinearActuator.bError)
+	eInnerState_JogLinActuator2_Node_2 ---> eInnerState_JogLinActuator2_ERROR : (fbLinearActuator.bError)
+	eInnerState_JogLinActuator2 ---> eInnerState_WaitForCommand : (NOT (fbLinearActuator.bError))
+	eInnerState_DisableMotors1_Node_0 ---> eInnerState_DisableMotors1_Node_1 : (NOT (fbStepper.Ready\nAND fbLinearActuator.Ready))
+	eInnerState_DisableMotors1_Node_1 ---> eInnerState_DisableMotors1_ERROR : (NOT (fbStepper.Ready\nAND fbLinearActuator.Ready))
+	eInnerState_DisableMotors1 ---> eInnerState_DisableMotors2 : ((fbStepper.Ready\nAND fbLinearActuator.Ready))
+	eInnerState_DisableMotors2_Node_0 ---> eInnerState_DisableMotors2_Node_1 : (NOT (fbLinearActuator.Busy))
+	eInnerState_DisableMotors2_Node_1 ---> eInnerState_DisableMotors2_Node_2 : (fbLinearActuator.bError)
+	eInnerState_DisableMotors2_Node_2 ---> eInnerState_DisableMotors2_ERROR : (fbLinearActuator.bError)
+	eInnerState_DisableMotors2_Node_0 ---> eInnerState_DisableMotors2_Node_3 : (fbLinearActuator.Busy)
+	eInnerState_DisableMotors2_Node_3 ---> eInnerState_DisableMotors2_Node_4 : (NOT (fbStepper.Busy))
+	eInnerState_DisableMotors2_Node_4 ---> eInnerState_DisableMotors2_Node_5 : (fbStepper.bError)
+	eInnerState_DisableMotors2_Node_5 ---> eInnerState_DisableMotors2_ERROR : (fbStepper.bError)
+	eInnerState_DisableMotors2_Node_0 ---> eInnerState_DisableMotors2_Node_6 : (fbLinearActuator.Busy)
+	eInnerState_DisableMotors2 ---> eInnerState_Idle : (bMotorsDisabled)
+eInnerState : 
+eInnerState : 
+
+
+}
+
+@enduml

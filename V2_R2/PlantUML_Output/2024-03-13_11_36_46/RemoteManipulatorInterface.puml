@@ -1,0 +1,118 @@
+@startuml State Diagram
+
+!theme plain
+'skin rose
+'left to right direction
+hide empty description
+'!theme reddress-lightgreen
+title FB_RemoteManipulatorInterface State Diagram
+
+
+
+state FB_RemoteManipulatorInterface{
+
+state eInnerState #84b1f5 {
+	[*] --> eInnerState_Idle : START
+	state eInnerState_Idle #lightblue {
+state "ERROR" as eInnerState_Idle_ERROR <<exitPoint>> #ff3333
+	state eInnerState_Idle_Node_0 <<choice>>
+	[*] ---> eInnerState_Idle_Node_0 : START
+	eInnerState_Idle_Node_0 ---> [*] : (bEstablishComm)
+	}
+	state eInnerState_Connecting1 #lightblue {
+state "ERROR" as eInnerState_Connecting1_ERROR <<exitPoint>> #ff3333
+	state "fbConnectTON()" as eInnerState_Connecting1_Node_0 
+	[*] ---> eInnerState_Connecting1_Node_0 : START
+	state "fbDataExchaTON()" as eInnerState_Connecting1_Node_1 
+	state "fbConnectTON()" as eInnerState_Connecting1_Node_2 
+	eInnerState_Connecting1_Node_2 ---> [*] : None
+	}
+	state eInnerState_Connecting2 #lightblue {
+state "ERROR" as eInnerState_Connecting2_ERROR <<exitPoint>> #ff3333
+	state "tcpclient()" as eInnerState_Connecting2_Node_0 
+	[*] ---> eInnerState_Connecting2_Node_0 : START
+	state "fbConnectTON()" as eInnerState_Connecting2_Node_1 
+		state eInnerState_Connecting2_Node_2 <<choice>>
+		state "fbConnectTON()" as eInnerState_Connecting2_Node_3 
+	eInnerState_Connecting2_Node_3 ---> [*] : (tcpclient.bConnected)
+			state eInnerState_Connecting2_Node_4 <<choice>>
+			state "fbConnectTON()" as eInnerState_Connecting2_Node_5 
+			state "fbEventHandler(TCP_CONNECTION_TIMEOUT)" as eInnerState_Connecting2_Node_6 
+	}
+	state eInnerState_DataExchange1 #lightblue {
+state "ERROR" as eInnerState_DataExchange1_ERROR <<exitPoint>> #ff3333
+	state eInnerState_DataExchange1_Node_0 <<choice>>
+	[*] ---> eInnerState_DataExchange1_Node_0 : START
+		state eInnerState_DataExchange1_Node_1 <<choice>>
+	eInnerState_DataExchange1_Node_1 ---> [*] : (Connected)
+		state "fbEventHandler(SYSTEM_IN_UNEXPECTED_STATE)" as eInnerState_DataExchange1_Node_2 
+		state eInnerState_DataExchange1_Node_3 <<choice>>
+			state eInnerState_DataExchange1_Node_4 <<choice>>
+			state "tcpclient()" as eInnerState_DataExchange1_Node_5 
+			state "tcpclient()" as eInnerState_DataExchange1_Node_6 
+		state "tcpclient()" as eInnerState_DataExchange1_Node_7 
+		state "fbEventHandler(TCP_TEMPORARY_CONNECTION_LOST)" as eInnerState_DataExchange1_Node_8 
+		state "fbDataExchaTON()" as eInnerState_DataExchange1_Node_9 
+	eInnerState_DataExchange1_Node_9 ---> [*] : (NOT (Connected))
+	state "ResetTimeDerivatives()" as eInnerState_DataExchange1_Node_10 
+	}
+	state eInnerState_DataExchange2 #lightblue {
+state "ERROR" as eInnerState_DataExchange2_ERROR <<exitPoint>> #ff3333
+	state "tcpclient()" as eInnerState_DataExchange2_Node_0 
+	[*] ---> eInnerState_DataExchange2_Node_0 : START
+	state "fbDataExchaTON()" as eInnerState_DataExchange2_Node_1 
+		state eInnerState_DataExchange2_Node_2 <<choice>>
+		state "fbDataExchaTON()" as eInnerState_DataExchange2_Node_3 
+		state "fbEventHandler(TCP_CONNETION_LOST)" as eInnerState_DataExchange2_Node_4 
+		state eInnerState_DataExchange2_Node_5 <<choice>>
+	eInnerState_DataExchange2_Node_5 ---> [*] : (tcpclient.bConnected)
+	}
+	state eInnerState_CloseConnection1 #lightblue {
+state "ERROR" as eInnerState_CloseConnection1_ERROR <<exitPoint>> #ff3333
+	state eInnerState_CloseConnection1_Node_0 <<choice>>
+	[*] ---> eInnerState_CloseConnection1_Node_0 : START
+	state "tcpclient()" as eInnerState_CloseConnection1_Node_1 
+	eInnerState_CloseConnection1_Node_0 ---> [*] : (NOT (Connected))
+	}
+	}
+	eInnerState_Idle ---> eInnerState_Connecting1 : (bEstablishComm)
+	eInnerState_Connecting1_Node_0 ---> eInnerState_Connecting1_Node_1
+	eInnerState_Connecting1_Node_1 ---> eInnerState_Connecting1_Node_2
+	eInnerState_Connecting1 ---> eInnerState_Connecting2 : None
+	eInnerState_Connecting2_Node_0 ---> eInnerState_Connecting2_Node_1
+	eInnerState_Connecting2_Node_1 ---> eInnerState_Connecting2_Node_2
+	eInnerState_Connecting2_Node_2 ---> eInnerState_Connecting2_Node_3 : (tcpclient.bConnected)
+	eInnerState_Connecting2 ---> eInnerState_DataExchange1 : (tcpclient.bConnected)
+	eInnerState_Connecting2_Node_2 ---> eInnerState_Connecting2_Node_4 : (NOT (tcpclient.bConnected))
+	eInnerState_Connecting2_Node_4 ---> eInnerState_Connecting2_Node_5 : (fbConnectTON.Q)
+	eInnerState_Connecting2_Node_5 ---> eInnerState_Connecting2_Node_6 : (fbConnectTON.Q)
+	eInnerState_Connecting2_Node_6 ---> eInnerState_Connecting2_ERROR : (fbConnectTON.Q)
+	eInnerState_DataExchange1_Node_0 ---> eInnerState_DataExchange1_Node_1 : (bEndCommunication)
+	eInnerState_DataExchange1 ---> eInnerState_CloseConnection1 : (Connected)
+	eInnerState_DataExchange1_Node_1 ---> eInnerState_DataExchange1_Node_2 : (NOT (Connected))
+	eInnerState_DataExchange1_Node_2 ---> eInnerState_DataExchange1_ERROR : (NOT (Connected))
+	eInnerState_DataExchange1_Node_0 ---> eInnerState_DataExchange1_Node_3 : (NOT (bEndCommunication))
+	eInnerState_DataExchange1_Node_3 ---> eInnerState_DataExchange1_Node_4 : (Connected)
+	eInnerState_DataExchange1_Node_4 ---> eInnerState_DataExchange1_Node_5 : (bSendMotionCommands)
+	eInnerState_DataExchange1_Node_4 ---> eInnerState_DataExchange1_Node_6 : (NOT (bSendMotionCommands))
+	eInnerState_DataExchange1_Node_3 ---> eInnerState_DataExchange1_Node_7 : (NOT (Connected))
+	eInnerState_DataExchange1_Node_7 ---> eInnerState_DataExchange1_Node_8 : (NOT (Connected))
+	eInnerState_DataExchange1_Node_8 ---> eInnerState_DataExchange1_Node_9 : (NOT (Connected))
+	eInnerState_DataExchange1 ---> eInnerState_DataExchange2 : (NOT (Connected))
+	eInnerState_DataExchange1_Node_0 ---> eInnerState_DataExchange1_Node_10 : (NOT (bEndCommunication))
+	eInnerState_DataExchange2_Node_0 ---> eInnerState_DataExchange2_Node_1
+	eInnerState_DataExchange2_Node_1 ---> eInnerState_DataExchange2_Node_2
+	eInnerState_DataExchange2_Node_2 ---> eInnerState_DataExchange2_Node_3 : (fbDataExchaTON.Q)
+	eInnerState_DataExchange2_Node_3 ---> eInnerState_DataExchange2_Node_4 : (fbDataExchaTON.Q)
+	eInnerState_DataExchange2_Node_4 ---> eInnerState_DataExchange2_ERROR : (fbDataExchaTON.Q)
+	eInnerState_DataExchange2_Node_4 ---> eInnerState_DataExchange2_Node_5 : (NOT (fbDataExchaTON.Q))
+	eInnerState_DataExchange2 ---> eInnerState_DataExchange1 : (tcpclient.bConnected)
+	eInnerState_CloseConnection1_Node_0 ---> eInnerState_CloseConnection1_Node_1 : (Connected)
+	eInnerState_CloseConnection1 ---> eInnerState_Idle : (NOT (Connected))
+eInnerState : 
+eInnerState : 
+
+
+}
+
+@enduml

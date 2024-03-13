@@ -1,0 +1,44 @@
+@startuml State Diagram
+
+!theme plain
+'skin rose
+'left to right direction
+hide empty description
+'!theme reddress-lightgreen
+title FB_DcMotor State Diagram
+
+
+
+state FB_DcMotor{
+
+state eInnerState #84b1f5 {
+	[*] --> eInnerState_Idle : START
+	state eInnerState_Idle #lightblue {
+state "ERROR" as eInnerState_Idle_ERROR <<exitPoint>> #ff3333
+	state eInnerState_Idle_Node_0 <<choice>>
+	[*] ---> eInnerState_Idle_Node_0 : START
+	eInnerState_Idle_Node_0 ---> [*] : (bEnable)
+	state eInnerState_Idle_Node_1 <<choice>>
+	eInnerState_Idle_Node_1 ---> [*] : (bDisable)
+	}
+	state eInnerState_Enable1 #lightblue {
+state "ERROR" as eInnerState_Enable1_ERROR <<exitPoint>> #ff3333
+	[*] ---> [*]
+	}
+	state eInnerState_Disable1 #lightblue {
+state "ERROR" as eInnerState_Disable1_ERROR <<exitPoint>> #ff3333
+	[*] ---> [*]
+	}
+	}
+	eInnerState_Idle ---> eInnerState_Enable1 : (bEnable)
+	eInnerState_Idle_Node_0 ---> eInnerState_Idle_Node_1 : (NOT (bEnable))
+	eInnerState_Idle ---> eInnerState_Disable1 : (bDisable)
+	eInnerState_Enable1 ---> eInnerState_Idle
+	eInnerState_Disable1 ---> eInnerState_Idle
+eInnerState : 
+eInnerState : 
+
+
+}
+
+@enduml

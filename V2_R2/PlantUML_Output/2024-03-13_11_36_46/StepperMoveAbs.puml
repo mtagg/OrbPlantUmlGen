@@ -1,0 +1,106 @@
+@startuml State Diagram
+
+!theme plain
+'skin rose
+'left to right direction
+hide empty description
+'!theme reddress-lightgreen
+title FB_StepperMoveAbs State Diagram
+
+
+
+state FB_StepperMoveAbs{
+
+state eInnerState #84b1f5 {
+	[*] --> eInnerState_Idle : START
+	state eInnerState_Idle #lightblue {
+state "ERROR" as eInnerState_Idle_ERROR <<exitPoint>> #ff3333
+	state eInnerState_Idle_Node_0 <<choice>>
+	[*] ---> eInnerState_Idle_Node_0 : START
+	eInnerState_Idle_Node_0 ---> [*] : (bStart)
+	}
+	state eInnerState_CheckIfEnabled #lightblue {
+state "ERROR" as eInnerState_CheckIfEnabled_ERROR <<exitPoint>> #ff3333
+	state eInnerState_CheckIfEnabled_Node_0 <<choice>>
+	[*] ---> eInnerState_CheckIfEnabled_Node_0 : START
+	eInnerState_CheckIfEnabled_Node_0 ---> [*] : (fbPower.Status)
+	eInnerState_CheckIfEnabled_Node_0 ---> [*] : (NOT (fbPower.Status))
+	}
+	state eInnerState_EnableAxis1 #lightblue {
+state "ERROR" as eInnerState_EnableAxis1_ERROR <<exitPoint>> #ff3333
+	state "fbPower()" as eInnerState_EnableAxis1_Node_0 
+	[*] ---> eInnerState_EnableAxis1_Node_0 : START
+	eInnerState_EnableAxis1_Node_0 ---> [*] : None
+	}
+	state eInnerState_EnableAxis2 #lightblue {
+state "ERROR" as eInnerState_EnableAxis2_ERROR <<exitPoint>> #ff3333
+	state eInnerState_EnableAxis2_Node_0 <<choice>>
+	[*] ---> eInnerState_EnableAxis2_Node_0 : START
+	state "fbEventHandler()" as eInnerState_EnableAxis2_Node_1 
+	state eInnerState_EnableAxis2_Node_2 <<choice>>
+	state "fbReset()" as eInnerState_EnableAxis2_Node_3 
+	eInnerState_EnableAxis2_Node_3 ---> [*] : (fbPower.Status = TRUE)
+		state eInnerState_EnableAxis2_Node_4 <<choice>>
+		state "fbEventHandler(ENABLE_NOT_DONE_IN_ALLOTED_TIME)" as eInnerState_EnableAxis2_Node_5 
+	}
+	state eInnerState_Move1 #lightblue {
+state "ERROR" as eInnerState_Move1_ERROR <<exitPoint>> #ff3333
+	state eInnerState_Move1_Node_0 <<choice>>
+	[*] ---> eInnerState_Move1_Node_0 : START
+	state "fbEventHandler(SYSTEM_IN_UNEXPECTED_STATE)" as eInnerState_Move1_Node_1 
+		state eInnerState_Move1_Node_2 <<choice>>
+		state "fbEventHandler(UNABLE_TO_START_TASK)" as eInnerState_Move1_Node_3 
+		state "fbMoveAbsolute()" as eInnerState_Move1_Node_4 
+	eInnerState_Move1_Node_4 ---> [*] : (NOT (fbMoveAbsolute.Error))
+	}
+	state eInnerState_Move2 #lightblue {
+state "ERROR" as eInnerState_Move2_ERROR <<exitPoint>> #ff3333
+	state eInnerState_Move2_Node_0 <<choice>>
+	[*] ---> eInnerState_Move2_Node_0 : START
+		state eInnerState_Move2_Node_1 <<choice>>
+		state "fbEventHandler(UNABLE_TO_START_TASK)" as eInnerState_Move2_Node_2 
+		state eInnerState_Move2_Node_3 <<choice>>
+		state "fbEventHandler(MC2_JOG_COMMAND_ABORTED)" as eInnerState_Move2_Node_4 
+		state eInnerState_Move2_Node_5 <<choice>>
+		state "fbMoveAbsolute()" as eInnerState_Move2_Node_6 
+	eInnerState_Move2_Node_6 ---> [*] : (fbMoveAbsolute.Done)
+		state "fbEventHandler(SYSTEM_IN_UNEXPECTED_STATE)" as eInnerState_Move2_Node_7 
+	}
+	}
+	eInnerState_Idle ---> eInnerState_CheckIfEnabled : (bStart)
+	eInnerState_CheckIfEnabled ---> eInnerState_Move1 : (fbPower.Status)
+	eInnerState_CheckIfEnabled ---> eInnerState_EnableAxis1 : (NOT (fbPower.Status))
+	eInnerState_EnableAxis1 ---> eInnerState_EnableAxis2 : None
+	eInnerState_EnableAxis2_Node_0 ---> eInnerState_EnableAxis2_Node_1 : (fbPower.Error)
+	eInnerState_EnableAxis2_Node_1 ---> eInnerState_EnableAxis2_ERROR : (fbPower.Error)
+	eInnerState_EnableAxis2_Node_1 ---> eInnerState_EnableAxis2_Node_2 : (NOT (fbPower.Error))
+	eInnerState_EnableAxis2_Node_2 ---> eInnerState_EnableAxis2_Node_3 : (fbPower.Status = TRUE)
+	eInnerState_EnableAxis2 ---> eInnerState_Move1 : (fbPower.Status = TRUE)
+	eInnerState_EnableAxis2_Node_2 ---> eInnerState_EnableAxis2_Node_4 : (NOT (fbPower.Status = TRUE))
+	eInnerState_EnableAxis2_Node_4 ---> eInnerState_EnableAxis2_Node_5 : (nPLC_Cycles > SystemConfig.nSTEPPER_MAX_CYCLES_TO_ENABLE)
+	eInnerState_EnableAxis2_Node_5 ---> eInnerState_EnableAxis2_ERROR : (nPLC_Cycles > SystemConfig.nSTEPPER_MAX_CYCLES_TO_ENABLE)
+	eInnerState_Move1_Node_0 ---> eInnerState_Move1_Node_1 : (fbMoveAbsolute.Busy)
+	eInnerState_Move1_Node_1 ---> eInnerState_Move1_ERROR : (fbMoveAbsolute.Busy)
+	eInnerState_Move1_Node_0 ---> eInnerState_Move1_Node_2 : (NOT (fbMoveAbsolute.Busy))
+	eInnerState_Move1_Node_2 ---> eInnerState_Move1_Node_3 : (fbMoveAbsolute.Error)
+	eInnerState_Move1_Node_3 ---> eInnerState_Move1_ERROR : (fbMoveAbsolute.Error)
+	eInnerState_Move1_Node_2 ---> eInnerState_Move1_Node_4 : (NOT (fbMoveAbsolute.Error))
+	eInnerState_Move1 ---> eInnerState_Move2 : (NOT (fbMoveAbsolute.Error))
+	eInnerState_Move2_Node_0 ---> eInnerState_Move2_Node_1 : (NOT (fbMoveAbsolute.Busy))
+	eInnerState_Move2_Node_1 ---> eInnerState_Move2_Node_2 : (fbMoveAbsolute.Error)
+	eInnerState_Move2_Node_2 ---> eInnerState_Move2_ERROR : (fbMoveAbsolute.Error)
+	eInnerState_Move2_Node_2 ---> eInnerState_Move2_Node_3 : (NOT (fbMoveAbsolute.Error))
+	eInnerState_Move2_Node_3 ---> eInnerState_Move2_Node_4 : (fbMoveAbsolute.CommandAborted)
+	eInnerState_Move2_Node_4 ---> eInnerState_Move2_ERROR : (fbMoveAbsolute.CommandAborted)
+	eInnerState_Move2_Node_4 ---> eInnerState_Move2_Node_5 : (NOT (fbMoveAbsolute.CommandAborted))
+	eInnerState_Move2_Node_5 ---> eInnerState_Move2_Node_6 : (fbMoveAbsolute.Done)
+	eInnerState_Move2 ---> eInnerState_Idle : (fbMoveAbsolute.Done)
+	eInnerState_Move2_Node_5 ---> eInnerState_Move2_Node_7 : (NOT (fbMoveAbsolute.Done))
+	eInnerState_Move2_Node_7 ---> eInnerState_Move2_ERROR : (NOT (fbMoveAbsolute.Done))
+eInnerState : 
+eInnerState : 
+
+
+}
+
+@enduml

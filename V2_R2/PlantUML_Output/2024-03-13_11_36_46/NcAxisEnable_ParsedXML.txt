@@ -1,0 +1,77 @@
+	>>
+	>>Start of Method : InnerLoopSM
+	>>
+	>>
+	fbPower(Axis:=stParentAxisRef);
+	fbReset(Axis:=stParentAxisRef);
+	CASE CyclicInnerCase(TO_STRING(eInnerState)) OF
+		E_AxisEnableStates.Idle:
+			IF bStart THEN
+				bStart := FALSE;
+				IF bEnable THEN
+					ChangeInnerState(E_AxisEnableStates.CheckIfEnabled);
+				ELSE 
+					ChangeInnerState(E_AxisEnableStates.DisableAxis);
+				END_IF
+			END_IF
+		E_AxisEnableStates.CheckIfEnabled:
+			ChangeInnerState(E_StepperJogStates.ResetAxis1);
+		E_AxisEnableStates.ResetAxis1:
+			fbReset(Axis:=stParentAxisRef,Execute:=TRUE);
+			nPLC_Cycles := 0;
+			ChangeInnerState(E_AxisEnableStates.ResetAxis2);
+		E_AxisEnableStates.ResetAxis2:
+			nPLC_Cycles := nPLC_Cycles +1; 
+			IF fbReset.Done THEN
+				fbReset(Axis:=stParentAxisRef,Execute:=FALSE);  
+				IF Enabled THEN
+					ChangeInnerState(E_AxisEnableStates.Idle);
+				ELSE
+					ChangeInnerState(E_AxisEnableStates.EnableAxis1);
+				END_IF
+			ELSIF fbReset.Error THEN
+				fbEventHandler(nBeckhoffID:=fbReset.ErrorID);
+				bError := TRUE;
+			ELSE
+				IF nPLC_Cycles > SystemConfig.nSTEPPER_MAX_CYCLES_TO_RESET THEN
+					fbEventHandler(eNapID:=E_Event.RESET_NOT_DONE_IN_ALLOTED_TIME);
+					bError := TRUE;
+				ELSE
+				END_IF
+			END_IF
+		E_AxisEnableStates.EnableAxis1:
+			fbPower(Axis:=stParentAxisRef,Enable:=TRUE, Enable_Positive := TRUE, Enable_Negative := TRUE);
+			nPLC_Cycles := 0;
+			ChangeInnerState(E_AxisEnableStates.EnableAxis2);
+		E_AxisEnableStates.EnableAxis2:
+			nPLC_Cycles := nPLC_Cycles +1; 
+			IF fbPower.Error THEN
+				fbEventHandler(nBeckhoffID:=fbPower.ErrorID);
+				bError := TRUE;
+			ELSIF fbPower.Status = TRUE THEN 
+				fbReset(Axis:=stParentAxisRef,Execute:=FALSE); 
+				ChangeInnerState(E_AxisEnableStates.Idle);
+			ELSE
+				IF nPLC_Cycles > SystemConfig.nSTEPPER_MAX_CYCLES_TO_ENABLE THEN
+					fbEventHandler(eNapID:=E_Event.ENABLE_NOT_DONE_IN_ALLOTED_TIME);
+					bError := TRUE;
+				ELSE
+				END_IF
+			END_IF
+		E_AxisEnableStates.DisableAxis:
+			fbPower(Axis:=stParentAxisRef,Enable:=FALSE);
+			IF fbPower.Error THEN
+				fbEventHandler(nBeckhoffID:=fbPower.ErrorID);
+				bError := TRUE;
+			ELSIF fbPower.Status = FALSE THEN
+				ChangeInnerState(E_AxisEnableStates.Idle);
+			ELSE
+			END_IF
+	END_CASE
+
+
+States found:
+	eInnerState
+Methods Found:
+	InnerLoopSM
+Method-Case Pairs Found:
