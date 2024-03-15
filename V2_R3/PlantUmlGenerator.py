@@ -60,7 +60,7 @@ class PlantUmlGenerator():
         colour = GLOBALS_["ErrorColourCode"]
       return getTabs(node.getLevel(),1) + f"state \"{node.getName()}\" as {node.getId()} {colour}\n"
     
-    def umlWriteTransition(self, parentNode, node, transitionCondition):
+    def umlWriteTransition(self, parentNode, node, transitionCondition=None):
       if transitionCondition == None:
         return makeBranchString(parentNode.getId(), node.getId())
       else:
@@ -73,6 +73,7 @@ class PlantUmlGenerator():
         """
         stateNodes = [StateNode] # BUG: will this be None for the first index????
         stateNodes.append(None)
+        sequenceNum = 0
         umlString = ""
         branchString = ""
         errorExit = subState+'_ERROR'
@@ -93,7 +94,8 @@ class PlantUmlGenerator():
             if (Match := re.search(self.GENERAL_IF_THEN_RE, line)):
               # print(line)
               try:
-                newNode = StateNode(lastNode=stateNodes[-1], parentState=subState, isIf=True, condition=getIfCondition(caseCodeLines, i))
+                sequenceNum+=1
+                newNode = StateNode(lastNode=stateNodes[-1], parentState=subState, sequenceNum=sequenceNum, isIf=True, condition=getIfCondition(caseCodeLines, i))
                 umlString += self.umlDeclareIF(newNode)
                 # write transition from parent to new node
                 
@@ -112,7 +114,8 @@ class PlantUmlGenerator():
             elif Match := re.search(self.GENERAL_ELSIF_THEN_RE, line):
               # Non nested, new state at same level, previous IF/ELSIF condition NOT TRUE
               try:
-                newNode = StateNode(lastNode=stateNodes[-1], parentState=subState, isElsif=True, condition=getElsifCondition(caseCodeLines, i))
+                sequenceNum+=1
+                newNode = StateNode(lastNode=stateNodes[-1], parentState=subState, sequenceNum=sequenceNum, isElsif=True, condition=getElsifCondition(caseCodeLines, i))
                 umlString += self.umlDeclareIF(newNode)
                 # write transition from parent to new node
                 if newNode.getParentNode() == None:
@@ -131,7 +134,7 @@ class PlantUmlGenerator():
                 
                 # Save the most recent sequence number
                 # TODO: Update sequence# at the method level
-                tempSeqNum = stateNodes[-1].getSeqNum()
+                # tempSeqNum = stateNodes[-1].getSeqNum()
                 
                 currentNodeLevel = stateNodes[-1].getLevel()          
                 
@@ -150,7 +153,7 @@ class PlantUmlGenerator():
                   stateNodes[-1].invertCondition()
                   # Update the head node's sequence number to avoid overwrite issues.
                   # TODO: Update sequence# at the method level
-                  stateNodes[-1].setSeqNum(tempSeqNum)
+                  # stateNodes[-1].setSeqNum(tempSeqNum)
                 else:
                   # TODO ERROR
                   pass
@@ -164,26 +167,17 @@ class PlantUmlGenerator():
             # search for END_IF statement          
             elif Match := re.search(self.END_IF_RE, line):
               try:
-                
-                # Save the most recent sequence number
-                # TODO: Update sequence# at the method level
-                tempSeqNum = stateNodes[-1].getSeqNum()
-                
                 # clear up all nodes at the current IF/ELSIF/ELSE level
                 currentNodeLevel = stateNodes[-1].getLevel()          
                 
-                while stateNodes[-1].getLevel() == currentNodeLevel:
+                while stateNodes[-1].getLevel() >= currentNodeLevel:
                   if stateNodes[-1].getParentNode() == None:
                     break # Break if we are back at the first node
                   if stateNodes[-1].getCondition() == None:
                     # Return non-conditional nodes (function/FB calls) to base node
-                    branchString += self.umlWriteTransition(stateNodes[-1], stateNodes[-1].getBaseNode(), None)
-                  stateNodes.pop()
-                  
-                # Update the head node's sequence number to avoid overwrite issues.
-                # TODO: Update sequence# at the method level
-                stateNodes[-1].setSeqNum(tempSeqNum)
-                  
+                    branchString += self.umlWriteTransition(stateNodes[-1], stateNodes[-1].getBaseNode())
+                  stateNodes.pop()      
+                        
               except:
                 eMsg = f"[Line {i}] ERROR: Failed to END_IF.\nReturning Early..."
                 traceback.print_exc()
@@ -232,7 +226,8 @@ class PlantUmlGenerator():
             elif Match := re.search("^\s*fbEventHandler\((.*E_Event\.(\w*|).*)\)\s*;\s*$", line):
               try:
                 newName = f"fbEventHandler({Match.group(2)})"
-                newNode = StateNode(lastNode=stateNodes[-1], parentState=subState, name=newName)
+                sequenceNum+=1
+                newNode = StateNode(lastNode=stateNodes[-1], parentState=subState, sequenceNum=sequenceNum, name=newName)
                 umlString += self.umlDeclareNamedNode(newNode)
                 if newNode.getParentNode() == None:
                   umlString +=  makeBranchStringConditional("[*]", newNode.getId(), "START")
@@ -248,8 +243,9 @@ class PlantUmlGenerator():
             elif Match := re.search("^\s*([\w\.]+)\(.*\)\s*;", line):
               filteredMatch = Match.group(1) + "()"
               try:
+                sequenceNum+=1
                 # newNode = StateNode(lastNode=stateNodes[-1], parentState=subState, name=Match.group(1))
-                newNode = StateNode(lastNode=stateNodes[-1], parentState=subState, name=filteredMatch)
+                newNode = StateNode(lastNode=stateNodes[-1], parentState=subState, sequenceNum=sequenceNum, name=filteredMatch)
                 umlString += self.umlDeclareNamedNode(newNode)
                 if newNode.getParentNode() == None:
                   umlString +=  makeBranchStringConditional("[*]", newNode.getId(), "START")
@@ -264,7 +260,8 @@ class PlantUmlGenerator():
             # Check for commented code in all cases
             elif Match := re.search(self.CALL_COMMENT_RE, line):
               try:
-                newNode = StateNode(lastNode=stateNodes[-1], parentState=subState, name=Match.group(1))
+                sequenceNum+=1
+                newNode = StateNode(lastNode=stateNodes[-1], parentState=subState, sequenceNum=sequenceNum, name=Match.group(1))
                 umlString += self.umlDeclareNamedNode(newNode)
                 if newNode.getParentNode() == None:
                   umlString +=  makeBranchStringConditional("[*]", newNode.getId(), "START")
@@ -284,11 +281,11 @@ class PlantUmlGenerator():
                 # umlString += self.umlDeclareNamedNode(newNode, error=True)
                 # umlString += self.umlWriteTransition(newNode.getParentNode(), newNode, newNode.getParentNode().getCondition())
                 # umlString += makeBranchStringConditional(newNode.getId(), '[*]', 'bError:=TRUE')
-                branchString += makeBranchStringConditional(stateNodes[-1].getId(), errorExit, stateNodes[-1].getParentNode().getCondition())
+                branchString += makeBranchStringConditional(stateNodes[-1].getId(), errorExit, stateNodes[-1].getCondition())
                 # branchString += makeBranchStringConditional(errorExit, '[*]', 'bError:=TRUE')
                 # Update the previous sequence number, we do not need to save the Error state to the stack
                 # TODO: Update sequence# at the method level
-                stateNodes[-1].setSeqNum(newNode.getSeqNum())
+                # stateNodes[-1].setSeqNum(newNode.getSeqNum())
               except:
                 traceback.print_exc()
                 eMsg = f"[Line {i}] ERROR: Failed to parse bError line: \n\t{Match.groups(0)}\nReturning Early..."

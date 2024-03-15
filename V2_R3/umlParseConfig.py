@@ -11,7 +11,7 @@ GLOBALS_ = {
 @startuml State Diagram\n\n\
 !theme plain\n\
 'skin rose\n\
-'left to right direction\n\
+left to right direction\n\
 hide empty description\n\
 '!theme reddress-lightgreen\n\
 title ",

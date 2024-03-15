@@ -1,0 +1,94 @@
+	>>
+	>>Start of Method : InnerLoopSM
+	>>
+	>>
+	ReadStatus();
+	fbRightArm();
+	fbLeftArm();
+	CASE CyclicInnerCase(TO_STRING(eInnerState)) OF
+		E_ModeHandlerStates.Idle:
+			IF bStartSelftest THEN
+				IF EnableArms() THEN
+					ChangeInnerState(E_ModeHandlerStates.Selftest1);
+					bStartSelftest := FALSE;
+				END_IF
+			END_IF
+		E_ModeHandlerStates.Selftest1:
+			IF fbRightArm.Ready AND  fbLeftArm.Ready THEN
+				fbRightArm.bStartSelftest:=TRUE;
+				fbLeftArm.bStartSelftest:=TRUE;
+				ChangeInnerState(E_ModeHandlerStates.Selftest2);
+			ELSE
+				HandleArmsNotReadyError(id:=E_Event.UNABLE_TO_START_TASK);
+	 		END_IF
+		E_ModeHandlerStates.Selftest2:
+			IF bGoToIdle_FE THEN
+				ChangeInnerState(E_ModeHandlerStates.HaltSelftest);
+			ELSE
+				IF fbRightArm.Ready AND fbLeftArm.Ready THEN
+					CheckArmsForCalibration();
+				ELSE
+					{warning 'Is this intuitive??? maybe add to the next IF condition instead of the bGoToUndocked variable??'}
+					bGoToUndocked := CheckForFailedDockedArm(arm:=fbLeftArm) OR CheckForFailedDockedArm(arm:=fbRightArm);
+				END_IF
+				IF bGoToUndocked THEN
+					ChangeInnerState(E_ModeHandlerStates.SelftestUndocked);
+				END_IF	
+			END_IF
+		E_ModeHandlerStates.SelftestUndocked:
+			IF fbRightArm.Docked AND fbLeftArm.Docked THEN
+				bGoToUndocked := FALSE;
+				ChangeInnerState(E_ModeHandlerStates.Selftest1);
+			ELSE
+			END_IF
+		E_ModeHandlerStates.HaltSelftest:
+			IF DisableArms() THEN
+				ChangeInnerState(E_ModeHandlerStates.Idle); 
+			END_IF
+		E_ModeHandlerStates.Ergonomics1:
+			IF fbRightArm.Ready AND  fbLeftArm.Ready THEN
+				{warning 'Do we need to check calibration in ergo1 if we are always moving here from Selftest1? and possibly we may not need ergonomics1 if that is the case as well, we can piggyback off of already activated arms????'}
+				CheckArmsForCalibration(); 
+			ELSE
+				HandleArmsNotReadyError(id:=E_Event.UNABLE_TO_START_TASK);
+	 		END_IF
+		E_ModeHandlerStates.Ergonomics2:
+			bBusy := TRUE;
+			IF bGoToIdle_FE THEN
+				fbRightArm.StopMotors := TRUE;
+				fbLeftArm.StopMotors := TRUE;
+				ChangeInnerState(E_ModeHandlerStates.HaltErgonomics);
+			ELSE
+				IF fbRightArm.Ready AND  fbLeftArm.Ready THEN
+					ChangeInnerState(E_ModeHandlerStates.Teleoperation1);
+				ELSE
+					fbRightArm.ErgoCommands := stRightErgoCommands_FE;
+					fbLeftArm.ErgoCommands := stLeftErgoCommands_FE;	
+					CheckForFailedArm(fbRightArm, E_Event.TASK_FAILED);
+					CheckForFailedArm(fbLeftArm, E_Event.TASK_FAILED);
+				END_IF
+			END_IF		
+		E_ModeHandlerStates.HaltErgonomics:
+			IF fbRightArm.Ready AND  fbLeftArm.Ready THEN
+				ChangeInnerState(E_ModeHandlerStates.Idle); 
+			ELSE 
+				CheckForFailedArm(fbRightArm, E_Event.TASK_FAILED);
+				CheckForFailedArm(fbLeftArm, E_Event.TASK_FAILED);
+			END_IF
+		E_ModeHandlerStates.Teleoperation1:
+			IF fbRightArm.Ready AND  fbLeftArm.Ready THEN
+				CheckArmsForCalibration(); 
+			ELSE
+				HandleArmsNotReadyError(id:=E_Event.UNABLE_TO_START_TASK);
+	 		END_IF	
+		E_ModeHandlerStates.Teleoperation2:	
+		E_ModeHandlerStates.EndCase:
+			ChangeInnerState(E_ModeHandlerStates.Idle);
+	END_CASE
+
+
+States found:
+	eInnerState
+Methods Found:
+	InnerLoopSM
+Method-Case Pairs Found:

@@ -1,0 +1,56 @@
+('C:\\Users\\neuroArmPlus '
+ 'PC\\Documents\\_Projects\\PlantUML\\src\\V2_R1\\build\\ST2PlantUML_V2_R1\\ST2PlantUML_V2_R1.pkg',
+ {'BINARY': True,
+  'DATA': True,
+  'EXECUTABLE': True,
+  'EXTENSION': True,
+  'PYMODULE': True,
+  'PYSOURCE': True,
+  'PYZ': False,
+  'SPLASH': True,
+  'SYMLINK': False},
+ [('pyi-contents-directory _internal', '', 'OPTION'),
+  ('PYZ-00.pyz',
+   'C:\\Users\\neuroArmPlus '
+   'PC\\Documents\\_Projects\\PlantUML\\src\\V2_R1\\build\\ST2PlantUML_V2_R1\\PYZ-00.pyz',
+   'PYZ'),
+  ('struct',
+   'C:\\Users\\neuroArmPlus '
+   'PC\\Documents\\_Projects\\PlantUML\\src\\V2_R1\\build\\ST2PlantUML_V2_R1\\localpycs\\struct.pyc',
+   'PYMODULE'),
+  ('pyimod01_archive',
+   'C:\\Users\\neuroArmPlus '
+   'PC\\Documents\\_Projects\\PlantUML\\src\\V2_R1\\build\\ST2PlantUML_V2_R1\\localpycs\\pyimod01_archive.pyc',
+   'PYMODULE'),
+  ('pyimod02_importers',
+   'C:\\Users\\neuroArmPlus '
+   'PC\\Documents\\_Projects\\PlantUML\\src\\V2_R1\\build\\ST2PlantUML_V2_R1\\localpycs\\pyimod02_importers.pyc',
+   'PYMODULE'),
+  ('pyimod03_ctypes',
+   'C:\\Users\\neuroArmPlus '
+   'PC\\Documents\\_Projects\\PlantUML\\src\\V2_R1\\build\\ST2PlantUML_V2_R1\\localpycs\\pyimod03_ctypes.pyc',
+   'PYMODULE'),
+  ('pyimod04_pywin32',
+   'C:\\Users\\neuroArmPlus '
+   'PC\\Documents\\_Projects\\PlantUML\\src\\V2_R1\\build\\ST2PlantUML_V2_R1\\localpycs\\pyimod04_pywin32.pyc',
+   'PYMODULE'),
+  ('pyiboot01_bootstrap',
+   'C:\\Users\\neuroArmPlus '
+   'PC\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python311\\site-packages\\PyInstaller\\loader\\pyiboot01_bootstrap.py',
+   'PYSOURCE'),
+  ('pyi_rth_inspect',
+   'C:\\Users\\neuroArmPlus '
+   'PC\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python311\\site-packages\\PyInstaller\\hooks\\rthooks\\pyi_rth_inspect.py',
+   'PYSOURCE'),
+  ('ST2PlantUML_V2_R1',
+   'C:\\Users\\neuroArmPlus '
+   'PC\\Documents\\_Projects\\PlantUML\\src\\V2_R1\\ST2PlantUML_V2_R1.py',
+   'PYSOURCE')],
+ 'python311.dll',
+ True,
+ False,
+ False,
+ [],
+ None,
+ None,
+ None)

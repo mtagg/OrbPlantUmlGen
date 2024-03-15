@@ -1,0 +1,86 @@
+@startuml State Diagram
+
+skin rose
+'left to right direction
+hide empty description
+!theme reddress-lightgreen
+title FB_ModeHandler State Diagram
+
+
+
+state FB_ModeHandler{
+
+state eInnerState #03adfc {
+	[*] --> eInnerState_Idle : START
+	state eInnerState_Idle{
+	state eInnerState_Idle_Node_0 <<choice>>
+	[*] --> eInnerState_Idle_Node_0 : START
+		state eInnerState_Idle_Node_1 <<choice>>
+	eInnerState_Idle_Node_1 --> [*] : (EnableArms())
+	}
+	state eInnerState_Selftest1{
+	state eInnerState_Selftest1_Node_0 <<choice>>
+	[*] --> eInnerState_Selftest1_Node_0 : START
+	eInnerState_Selftest1_Node_0 --> [*] : (fbRightArm.Ready AND  fbLeftArm.Ready)
+	}
+	state eInnerState_Selftest2{
+	state eInnerState_Selftest2_Node_0 <<choice>>
+	[*] --> eInnerState_Selftest2_Node_0 : START
+	eInnerState_Selftest2_Node_0 --> [*] : (bGoToIdle_FE)
+		state eInnerState_Selftest2_Node_1 <<choice>>
+		state eInnerState_Selftest2_Node_2 <<choice>>
+	eInnerState_Selftest2_Node_2 --> [*] : (bGoToUndocked)
+	}
+	state eInnerState_SelftestUndocked{
+	state eInnerState_SelftestUndocked_Node_0 <<choice>>
+	[*] --> eInnerState_SelftestUndocked_Node_0 : START
+	eInnerState_SelftestUndocked_Node_0 --> [*] : (fbRightArm.Docked AND fbLeftArm.Docked)
+	}
+	state eInnerState_HaltSelftest{
+	state eInnerState_HaltSelftest_Node_0 <<choice>>
+	[*] --> eInnerState_HaltSelftest_Node_0 : START
+	eInnerState_HaltSelftest_Node_0 --> [*] : (DisableArms())
+	}
+	state eInnerState_Ergonomics1{
+	state eInnerState_Ergonomics1_Node_0 <<choice>>
+	[*] --> eInnerState_Ergonomics1_Node_0 : START
+	}
+	state eInnerState_Ergonomics2{
+	state eInnerState_Ergonomics2_Node_0 <<choice>>
+	[*] --> eInnerState_Ergonomics2_Node_0 : START
+	eInnerState_Ergonomics2_Node_0 --> [*] : (bGoToIdle_FE)
+		state eInnerState_Ergonomics2_Node_1 <<choice>>
+	eInnerState_Ergonomics2_Node_1 --> [*] : (fbRightArm.Ready AND  fbLeftArm.Ready)
+	}
+	state eInnerState_HaltErgonomics{
+	state eInnerState_HaltErgonomics_Node_0 <<choice>>
+	[*] --> eInnerState_HaltErgonomics_Node_0 : START
+	eInnerState_HaltErgonomics_Node_0 --> [*] : (fbRightArm.Ready AND  fbLeftArm.Ready)
+	}
+	state eInnerState_Teleoperation1{
+	state eInnerState_Teleoperation1_Node_0 <<choice>>
+	[*] --> eInnerState_Teleoperation1_Node_0 : START
+	}
+	state eInnerState_Teleoperation2{
+	}
+	state eInnerState_EndCase{
+	}
+	}
+	eInnerState_Idle_Node_0 --> eInnerState_Idle_Node_1 : (bStartSelftest)
+	eInnerState_Idle --> eInnerState_Selftest1 : (EnableArms())
+	eInnerState_Selftest1 --> eInnerState_Selftest2 : (fbRightArm.Ready AND  fbLeftArm.Ready)
+	eInnerState_Selftest2 --> eInnerState_HaltSelftest : (bGoToIdle_FE)
+	eInnerState_Selftest2_Node_0 --> eInnerState_Selftest2_Node_1 : (NOT (bGoToIdle_FE))
+	eInnerState_Selftest2_Node_0 --> eInnerState_Selftest2_Node_2 : (NOT (bGoToIdle_FE))
+	eInnerState_Selftest2 --> eInnerState_SelftestUndocked : (bGoToUndocked)
+	eInnerState_SelftestUndocked --> eInnerState_Selftest1 : (fbRightArm.Docked AND fbLeftArm.Docked)
+	eInnerState_HaltSelftest --> eInnerState_Idle : (DisableArms())
+	eInnerState_Ergonomics2 --> eInnerState_HaltErgonomics : (bGoToIdle_FE)
+	eInnerState_Ergonomics2_Node_0 --> eInnerState_Ergonomics2_Node_1 : (NOT (bGoToIdle_FE))
+	eInnerState_Ergonomics2 --> eInnerState_Teleoperation1 : (fbRightArm.Ready AND  fbLeftArm.Ready)
+	eInnerState_HaltErgonomics --> eInnerState_Idle : (fbRightArm.Ready AND  fbLeftArm.Ready)
+
+
+}
+
+@enduml

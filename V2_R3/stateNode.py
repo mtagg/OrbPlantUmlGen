@@ -17,18 +17,19 @@ class StateNode ():
         isIf        : indicates if the node is an If statement
     """
     # Constructor
-    def __init__(self, lastNode, parentState, name=None, condition=None, isElsif=False, isIf=False) -> bool:
+    def __init__(self, lastNode, parentState, sequenceNum, name=None, condition=None, isElsif=False, isIf=False) -> bool:
         self.name = name             
         self.nextNode = None
         self.parentNode = None
         self.condition = condition
         self.isIf = isIf
         self.isElsif = isElsif
+        self.seqNum = sequenceNum
         # print(f"Creating new node: {self.name}")
         
         if lastNode != None:
           lastNode.setNextNode(self)
-          self.seqNum = lastNode.getSeqNum() + 1
+          # self.seqNum = lastNode.getSeqNum() + 1
               
           if isElsif:
             tempParent = lastNode
@@ -59,7 +60,7 @@ class StateNode ():
           self.nodeLevel = 0
           self.parentNode = None
           self.condition = condition
-          self.seqNum = 0
+          # self.seqNum = 0
           
         
         self.id = f'{str(parentState)}_Node_{str(self.seqNum)}'
