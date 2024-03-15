@@ -16,10 +16,12 @@
 2. [x] Add pre-case parsing
 3. [x] Add post-case parsing
 4. [ ] add default ELSE for case statements
-5. [x] Add custom commented code inputs
-6. [x] Add Method() and FB() call parsing
-7. [x] bError Tracking/parsing
-8. [ ] Track sequence number increments at the <convertSubStateToUML()> level, rather than at the Node object level.
+5. [ ] Block uncaptured code as one block state of actions.
+6. [ ] Fix conditional statements that may have 'THIS^.' embedded
+7. [x] Add custom commented code inputs
+8. [x] Add Method() and FB() call parsing
+9. [x] bError Tracking/parsing
+10. [x] Track sequence number increments at the <convertSubStateToUML()> level, rather than at the Node object level.
 
 
 # Later Features:
