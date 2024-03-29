@@ -1,0 +1,152 @@
+	>>
+	>>Start of Method : InnerLoopSM
+	>>
+	>>
+	CASE CyclicInnerCase(TO_STRING(eInnerState)) OF
+		E_SelftestStates.Idle:
+			IF bStart THEN
+				bStart := FALSE;
+				ChangeInnerState(E_SelftestStates.HomeStepper1);
+			END_IF
+		E_SelftestStates.HomeStepper1:
+			IF fbStepper.Busy THEN
+				sErrorDetails := 'fbStepper.Busy = TRUE';
+				fbEventHandler(eNapID:=E_Event.SYSTEM_IN_UNEXPECTED_STATE,sMessage:=sErrorDetails);
+				bError := TRUE;
+			ELSE	
+				IF fbStepper.bError THEN
+					fbEventHandler(eNapID:=E_Event.UNABLE_TO_START_TASK,sTrace:=fbStepper.EventTrace);
+					fbStepper.ErrorAck := TRUE;
+					bError := TRUE;
+				ELSE
+					fbStepper.bStartHoming:=TRUE;
+					ChangeInnerState(E_SelftestStates.HomeStepper2);
+				END_IF
+			END_IF
+		E_SelftestStates.HomeStepper2:
+			IF fbStepper.Busy THEN
+			ELSE
+				IF fbStepper.bError THEN
+					fbEventHandler(eNapID:=E_Event.TASK_FAILED,sTrace:=fbStepper.EventTrace);
+					fbStepper.ErrorAck:=TRUE;
+					bError := TRUE;
+				ELSE
+					IF fbStepper.Homed THEN
+						ChangeInnerState(E_SelftestStates.HomeLinearActuator1);
+					ELSE
+						sErrorDetails := 'fbStepper.Homed=FALSE';
+						fbEventHandler(eNapID:=E_Event.TASK_FAILED,sMessage:=sErrorDetails);
+						bError := TRUE;
+					END_IF
+				END_IF
+			END_IF
+		E_SelftestStates.HomeLinearActuator1:
+			IF fbLinearActuator.Busy THEN
+				sErrorDetails := 'fbLinearActuator.Busy = TRUE';
+				fbEventHandler(eNapID:=E_Event.SYSTEM_IN_UNEXPECTED_STATE,sMessage:=sErrorDetails);
+				bError := TRUE;
+			ELSE	
+				IF fbLinearActuator.bError THEN
+					fbEventHandler(eNapID:=E_Event.UNABLE_TO_START_TASK,sTrace:=fbLinearActuator.EventTrace);
+					fbLinearActuator.ErrorAck := TRUE;
+					bError := TRUE;
+				ELSE
+					fbLinearActuator.bStartHoming:=TRUE;
+					ChangeInnerState(E_SelftestStates.HomeLinearActuator2);
+				END_IF
+			END_IF
+		E_SelftestStates.HomeLinearActuator2:
+			IF fbLinearActuator.Busy THEN
+			ELSE
+				IF fbLinearActuator.bError THEN
+					fbEventHandler(eNapID:=E_Event.TASK_FAILED,sTrace:=fbLinearActuator.EventTrace);
+					fbLinearActuator.ErrorAck:=TRUE;
+					bError := TRUE;
+				ELSE
+					IF fbLinearActuator.Homed THEN
+						ChangeInnerState(E_SelftestStates.DisableMotors1);
+					ELSE
+						sErrorDetails := 'fbLinearActuator.Homed=FALSE';
+						fbEventHandler(eNapID:=E_Event.TASK_FAILED,sMessage:=sErrorDetails);
+						bError := TRUE;
+					END_IF
+				END_IF
+			END_IF
+		E_SelftestStates.DisableMotors1:
+			IF NOT (fbStepper.Ready AND fbLinearActuator.Ready) THEN
+				sErrorDetails := CONCAT('fbStepper.Ready/fbLinearActuator.Ready = ',CONCAT(BOOL_TO_STRING(fbStepper.Ready),BOOL_TO_STRING(fbLinearActuator.Ready)));
+				fbEventHandler(eNapID:=E_Event.SYSTEM_IN_UNEXPECTED_STATE,sMessage:=sErrorDetails);
+				bError := TRUE;
+			ELSE
+				fbLinearActuator.bDisableAxis := TRUE;	
+				fbStepper.bDisableAxis := TRUE;
+				ChangeInnerState(E_SelftestStates.DisableMotors2);
+			END_IF
+		E_SelftestStates.DisableMotors2:
+			IF fbLinearActuator.Busy THEN
+				bMotorsDisabled := FALSE;
+			ELSIF fbLinearActuator.bError THEN
+				bMotorsDisabled := FALSE;
+				fbEventHandler(eNapID:=E_Event.UNABLE_TO_COMPLETE_TASK,sTrace:=fbLinearActuator.EventTrace);
+				fbLinearActuator.ErrorAck := TRUE;
+				bError := TRUE;
+			END_IF
+			IF fbStepper.Busy THEN
+				bMotorsDisabled := FALSE;
+			ELSIF fbStepper.bError THEN
+				bMotorsDisabled := FALSE;
+				fbEventHandler(eNapID:=E_Event.UNABLE_TO_COMPLETE_TASK,sTrace:=fbStepper.EventTrace);
+				fbStepper.ErrorAck := TRUE;
+				bError := TRUE;
+			END_IF
+			IF bMotorsDisabled THEN
+				ChangeInnerState(E_SelftestStates.CalibrateJoints1);
+			END_IF
+		E_SelftestStates.CalibrateJoints1:
+			IF fbAllJoints.Busy THEN
+				sErrorDetails := 'fbAllJoints.Busy = TRUE';
+				fbEventHandler(eNapID:=E_Event.SYSTEM_IN_UNEXPECTED_STATE,sMessage:=sErrorDetails);
+				bError := TRUE;
+			ELSE	
+				IF fbAllJoints.bError THEN
+					fbEventHandler(eNapID:=E_Event.UNABLE_TO_START_TASK,sTrace:=fbAllJoints.EventTrace);
+					fbAllJoints.ErrorAck := TRUE;
+					bError := TRUE;
+				ELSE
+					fbAllJoints.bStartCalibration:=TRUE;
+					ChangeInnerState(E_SelftestStates.CalibrateJoints2);
+				END_IF
+			END_IF
+		E_SelftestStates.CalibrateJoints2:
+			IF fbAllJoints.Busy THEN
+			ELSE
+				IF fbAllJoints.bError THEN
+					fbEventHandler(eNapID:=E_Event.TASK_FAILED,sTrace:=fbAllJoints.EventTrace);
+					fbAllJoints.ErrorAck:=TRUE;
+					bError := TRUE;
+				ELSE
+					IF fbAllJoints.Calibrated THEN
+						ChangeInnerState(E_SelftestStates.CheckEncoderCalibration1);
+					ELSE
+						sErrorDetails := 'fbAllJoints.Calibrated=FALSE';
+						fbEventHandler(eNapID:=E_Event.TASK_FAILED,sMessage:=sErrorDetails);
+						bError := TRUE;
+					END_IF
+				END_IF
+			END_IF
+		E_SelftestStates.CheckEncoderCalibration1:
+			ChangeInnerState(E_SelftestStates.CheckEncoderCalibration2);
+		E_SelftestStates.CheckEncoderCalibration2:
+			ChangeInnerState(E_SelftestStates.WrapUp);
+		E_SelftestStates.WrapUp:
+			bCompleted := TRUE;
+			dtTimeCompleted := DateTime.GVL_DATE_TIME;
+			ChangeInnerState(E_SelftestStates.Idle);
+	END_CASE
+
+
+States found:
+	eInnerState
+Methods Found:
+	InnerLoopSM
+Method-Case Pairs Found:

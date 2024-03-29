@@ -74,8 +74,14 @@ def makeBranchStringConditional(srcState, destState, condition):
   # print(f"\t{srcState} --> {destState} : {condition}\n")
   return f"\t{srcState} ----> {destState} : {condition}\n"
 
-def makeBranchString(srcState, destState, condition = None):
+def makeBranchString(srcState, destState, condition = None, downArrow = False, upArrow=False, leftArrow=False, rightArror=False):
     if condition == None:
-        return f"\t{srcState} ----> {destState}\n"  
+        if downArrow:
+            return f"\t{srcState} ---> {destState}\n"  
+        else:
+            return f"\t{srcState} ---> {destState}\n"  
     else:
-        return f"\t{srcState} ----> {destState} : {condition}\n"
+        if downArrow:
+            return f"\t{srcState} ---> {destState} : {condition}\n"
+        else: 
+            return f"\t{srcState} ---> {destState} : {condition}\n"

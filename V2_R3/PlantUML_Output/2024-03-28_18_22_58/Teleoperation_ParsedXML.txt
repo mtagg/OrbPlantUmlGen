@@ -1,0 +1,221 @@
+	>>
+	>>Start of Method : InnerLoopSM
+	>>
+	>>
+	CASE CyclicInnerCase(TO_STRING(eInnerState)) OF
+		E_TeleoperationStates.Idle:
+			IF bStart THEN
+				bStart := FALSE;
+				ChangeInnerState(E_TeleoperationStates.StartDataProcessing1);
+			END_IF
+		E_TeleoperationStates.StartDataProcessing1:
+			IF fbKnS.Busy THEN
+				sErrorDetails := 'fbKnS.Busy = TRUE';
+				fbEventHandler(eNapID:=E_Event.SYSTEM_IN_UNEXPECTED_STATE,sMessage:=sErrorDetails);
+				bError := TRUE;
+			ELSE
+				IF fbKnS.bError THEN
+					fbEventHandler(eNapID:=E_Event.UNABLE_TO_START_TASK,sTrace:=fbKnS.EventTrace);
+					fbKnS.ErrorAck:=TRUE;
+					bError := TRUE;
+				ELSE
+					fbKnS.bStart := TRUE;
+					ChangeInnerState(E_TeleoperationStates.StartDataProcessing2);
+				END_IF
+			END_IF
+		E_TeleoperationStates.StartDataProcessing2:
+			IF fbKnS.Processing THEN
+				ChangeInnerState(E_TeleoperationStates.StartCommRM1);
+			ELSE
+				IF fbKnS.bError THEN
+					fbEventHandler(eNapID:=E_Event.TASK_FAILED,sTrace:=fbKnS.EventTrace);
+					fbKnS.ErrorAck:=TRUE;
+					bError := TRUE;
+				ELSE
+				END_IF
+			END_IF
+		E_TeleoperationStates.StartCommRM1:
+			IF fbRemoteManipulator.Busy THEN
+				sErrorDetails := 'fbRemoteManipulator.Busy = TRUE';
+				fbEventHandler(eNapID:=E_Event.SYSTEM_IN_UNEXPECTED_STATE,sMessage:=sErrorDetails);
+				bError := TRUE;
+			ELSE
+				IF fbRemoteManipulator.bError THEN
+					fbEventHandler(eNapID:=E_Event.UNABLE_TO_START_TASK,sTrace:=fbRemoteManipulator.EventTrace);
+					fbRemoteManipulator.ErrorAck:=TRUE;
+					bError := TRUE;
+				ELSE
+					fbRemoteManipulator.bEstablishComm :=TRUE;
+					ChangeInnerState(E_TeleoperationStates.StartCommRM2);
+				END_IF
+			END_IF
+		E_TeleoperationStates.StartCommRM2:
+			IF fbRemoteManipulator.Failed THEN
+				fbEventHandler(eNapID:=E_Event.TASK_FAILED,sTrace:=fbRemoteManipulator.EventTrace);
+				fbRemoteManipulator.ErrorAck:=TRUE;
+				bError := TRUE;
+			ELSE
+				IF fbRemoteManipulator.Connected THEN
+					ChangeInnerState(E_TeleoperationStates.EnableArmMotors1);
+				ELSE
+				END_IF
+			END_IF
+		E_TeleoperationStates.EnableArmMotors1:
+			IF fbArmMotors.Busy THEN
+				sErrorDetails := 'fbArmMotors.Busy = TRUE';
+				fbEventHandler(eNapID:=E_Event.SYSTEM_IN_UNEXPECTED_STATE,sMessage:=sErrorDetails);
+				bError := TRUE;
+			ELSE
+				IF fbArmMotors.bError THEN
+					fbEventHandler(eNapID:=E_Event.UNABLE_TO_START_TASK,sTrace:=fbArmMotors.EventTrace);
+					fbArmMotors.ErrorAck:=TRUE;
+					bError := TRUE;
+				ELSE
+					fbArmMotors.bEnable:=TRUE;
+					ChangeInnerState(E_TeleoperationStates.EnableArmMotors2);
+				END_IF
+			END_IF
+		E_TeleoperationStates.EnableArmMotors2:
+			IF fbArmMotors.Busy THEN
+			ELSE
+				IF fbArmMotors.bError THEN
+					fbEventHandler(eNapID:=E_Event.TASK_FAILED,sTrace:=fbArmMotors.EventTrace);
+					fbArmMotors.ErrorAck:=TRUE;
+					bError := TRUE;
+				ELSE
+					ChangeInnerState(E_TeleoperationStates.SetupWeightCompOn1);
+				END_IF
+			END_IF
+		E_TeleoperationStates.SetupWeightCompOn1:
+			IF CheckForFailedChildren() THEN
+				bError := TRUE;
+			ELSE
+				tWeightCompOnTime := DateTime.GVL_DATE_TIME;
+				fbArmMotors.bZeroOutput := FALSE;
+				fbKnS.WeightCompOn := TRUE;
+				fbKnS.ForceFeedbackOn := FALSE;
+				ChangeInnerState(E_TeleoperationStates.SetupWeightCompOn2);
+			END_IF
+		E_TeleoperationStates.SetupWeightCompOn2:
+			IF CheckForFailedChildren() THEN
+				bError := TRUE;
+			ELSE
+				IF bStop THEN
+					bStop := FALSE;
+					ChangeInnerState(E_TeleoperationStates.StartShuttingDown);
+				ELSIF NOT bBothArmsDocked THEN 
+					ChangeInnerState(E_TeleoperationStates.Operational1);
+				ELSIF DateTime.GVL_DATE_TIME > tWeightCompOnTime + T#5S THEN
+					ChangeInnerState(E_TeleoperationStates.SetupWeightCompOff1);
+				ELSE
+					fbArmMotors.aJointTorques := fbKnS.aJointTorques;
+				END_IF
+			END_IF
+		E_TeleoperationStates.SetupWeightCompOff1:
+			IF CheckForFailedChildren() THEN
+				bError := TRUE;
+			ELSE
+				fbArmMotors.bZeroOutput := TRUE;
+				ChangeInnerState(E_TeleoperationStates.SetupWeightCompOff2);
+			END_IF
+		E_TeleoperationStates.SetupWeightCompOff2:
+			IF CheckForFailedChildren() THEN
+				bError := TRUE;
+			ELSE
+				IF bStop THEN
+					bStop := FALSE;
+					ChangeInnerState(E_TeleoperationStates.StartShuttingDown);
+				ELSIF NOT bBothArmsDocked THEN 
+					ChangeInnerState(E_TeleoperationStates.Operational1);
+				ELSIF bMotionWhileDocked THEN
+					{warning 'TODO: write logic for bMotionWhileDocked'}
+					ChangeInnerState(E_TeleoperationStates.SetupWeightCompOn1);
+				ELSE
+				END_IF
+			END_IF
+		E_TeleoperationStates.Operational1:
+			IF CheckForFailedChildren() THEN
+				bError := TRUE;
+			ELSE
+				fbArmMotors.bZeroOutput := FALSE;
+				fbKnS.WeightCompOn := TRUE;
+				fbKnS.ForceFeedbackOn := TRUE;
+				ChangeInnerState(E_TeleoperationStates.Operational2);
+			END_IF
+		E_TeleoperationStates.Operational2:
+			IF CheckForFailedChildren() THEN
+				IF bRemoteError OR bJointError THEN 
+					ChangeInnerState(E_TeleoperationStates.ErrorWaitingForDock);
+				ELSE
+					bError := TRUE;
+				END_IF
+			ELSE
+				IF bStop THEN
+					bStop := FALSE;
+					ChangeInnerState(E_TeleoperationStates.StartShuttingDown);
+				ELSIF bBothArmsDocked THEN
+					ChangeInnerState(E_TeleoperationStates.SetupWeightCompOn1);
+				ELSE
+					stDataFromRM := fbRemoteManipulator.DataFromKuka;
+					fbKnS.aForceFeedback := stDataFromRM.aKukaTipForce;
+					fbArmMotors.aJointTorques := fbKnS.aJointTorques;
+					fbRemoteManipulator.TimeDerivativePosition := fbKnS.aPositionChange;
+					fbRemoteManipulator.TimeDerivativeOrientation := fbKnS.aOrientationChange;
+					fbRemoteManipulator.ToolActuation := fbTool.fActuationLevel;
+					fbRemoteManipulator.ToolType := fbTool.eToolID;
+					fbRemoteManipulator.EnableRM := fbFootSwitch.bClutchPressed;
+					fbRemoteManipulator.bSendMotionCommands := fbFootSwitch.bClutchPressed;
+				END_IF
+			END_IF
+		E_TeleoperationStates.ErrorWaitingForDock:
+			IF bBothArmsDocked THEN 
+				bError:=TRUE;
+			END_IF	
+		E_TeleoperationStates.StartShuttingDown:
+			fbKnS.bStop := TRUE;
+			fbArmMotors.bDisable := TRUE;
+			fbRemoteManipulator.bEndCommunication := TRUE;
+			ChangeInnerState(E_TeleoperationStates.DisableArmMotors);
+		E_TeleoperationStates.DisableArmMotors:
+			IF fbArmMotors.Busy THEN
+			ELSE
+				IF fbArmMotors.bError THEN
+					fbEventHandler(eNapID:=E_Event.UNABLE_TO_COMPLETE_TASK,sTrace:=fbArmMotors.EventTrace);
+					fbArmMotors.ErrorAck:=TRUE;
+					bError := TRUE;
+				ELSE
+					ChangeInnerState(E_TeleoperationStates.StopCommRM);
+				END_IF
+			END_IF
+		E_TeleoperationStates.StopCommRM:
+			IF fbRemoteManipulator.Busy THEN
+			ELSE
+				IF fbRemoteManipulator.bError THEN
+					fbEventHandler(eNapID:=E_Event.UNABLE_TO_COMPLETE_TASK,sTrace:=fbRemoteManipulator.EventTrace);
+					fbRemoteManipulator.ErrorAck:=TRUE;
+					bError := TRUE;
+				ELSE
+					ChangeInnerState(E_TeleoperationStates.StopDataProcessing);
+				END_IF
+			END_IF
+		E_TeleoperationStates.StopDataProcessing:
+			IF fbKnS.Busy THEN
+			ELSE
+				IF fbKnS.bError THEN
+					fbEventHandler(eNapID:=E_Event.UNABLE_TO_COMPLETE_TASK,sTrace:=fbKnS.EventTrace);
+					fbKnS.ErrorAck:=TRUE;
+					bError := TRUE;
+				ELSE
+					ChangeInnerState(E_TeleoperationStates.WrapUp);
+				END_IF
+			END_IF
+		E_TeleoperationStates.WrapUp:
+			ChangeInnerState(E_TeleoperationStates.Idle);
+	END_CASE
+
+
+States found:
+	eInnerState
+Methods Found:
+	InnerLoopSM
+Method-Case Pairs Found:

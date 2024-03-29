@@ -53,7 +53,10 @@ class PlantUmlGenerator():
 
     def umlDeclareIF(self, node):
       return getTabs(node.getLevel(),1) + f"state {node.getId()} <<choice>>\n"
-      
+    
+    def umlDeclareJoin(self, node):
+      return getTabs(node.getLevel(),1) + f"state {node.getId()} <<join>>\n"
+    
     def umlDeclareNamedNode(self,node, error=False):
       colour = ''
       if error:
@@ -64,7 +67,7 @@ class PlantUmlGenerator():
       if transitionCondition == None:
         return makeBranchString(parentNode.getId(), node.getId())
       else:
-        return makeBranchStringConditional(parentNode.getId(), node.getId(), transitionCondition)
+        return makeBranchString(parentNode.getId(), node.getId(), transitionCondition)
       
     def convertSubStateToUML(self, caseCodeLines, caseVar, subState, startLine, endLine):
         """
@@ -74,12 +77,15 @@ class PlantUmlGenerator():
         stateNodes = [StateNode] # BUG: will this be None for the first index????
         stateNodes.append(None)
         sequenceNum = 0
+        JoinNode = None
+        ReturnToJoin = False
+        AppendJoin = False
         umlString = ""
         branchString = ""
         errorExit = subState+'_ERROR'
         
         umlString += f"state \"ERROR\" as {errorExit} <<exitPoint>> {GLOBALS_['ErrorColourCode']}\n"
-        # branchString += makeBranchStringConditional(errorExit, f'ERROR <<exitPoint>> {GLOBALS_["ErrorColourCode"]}', 'bError:=TRUE')
+        # branchString += makeBranchString(errorExit, f'ERROR <<exitPoint>> {GLOBALS_["ErrorColourCode"]}', 'bError:=TRUE')
         
         for i, line in enumerate(caseCodeLines):
           if i == endLine:
@@ -89,23 +95,29 @@ class PlantUmlGenerator():
             return umlString, branchString
           
           elif i >= startLine:
-
+            
             # search for IF statement
             if (Match := re.search(self.GENERAL_IF_THEN_RE, line)):
-              # print(line)
               try:
                 sequenceNum+=1
                 newNode = StateNode(lastNode=stateNodes[-1], parentState=subState, sequenceNum=sequenceNum, isIf=True, condition=getIfCondition(caseCodeLines, i))
                 umlString += self.umlDeclareIF(newNode)
-                # write transition from parent to new node
                 
+                # write transition from parent to new node
                 if newNode.getParentNode() == None:
-                  umlString +=  makeBranchStringConditional("[*]", newNode.getId(), "START")
+                  umlString +=  makeBranchString("[*]", newNode.getId(), "START")
                 else:
                   branchString += self.umlWriteTransition(newNode.getParentNode(), newNode, newNode.getParentNode().getCondition())
+                
                 stateNodes.append(newNode)
+                
+                if newNode.getLevel() <= 1:
+                  # Need to create a base collection node, because we need to transition to this join as we traverse nested conditions
+                  sequenceNum+=1
+                  JoinNode = StateNode(lastNode=newNode.getParentNode(), parentState=subState, sequenceNum=sequenceNum, isJoin=True)
+                  ReturnToJoin = True
+                  
               except:
-  
                 eMsg = f"[Line {i}] ERROR: Failed to create new IF node.\nReturning Early..."
                 traceback.print_exc()
                 return printUmlException(umlString, eMsg)
@@ -117,6 +129,14 @@ class PlantUmlGenerator():
                 sequenceNum+=1
                 newNode = StateNode(lastNode=stateNodes[-1], parentState=subState, sequenceNum=sequenceNum, isElsif=True, condition=getElsifCondition(caseCodeLines, i))
                 umlString += self.umlDeclareIF(newNode)
+                
+                # Return the Most recent node to Join node if needed
+                if ReturnToJoin == True and stateNodes[-1].getCondition() == None:
+                  umlString += self.umlDeclareJoin(JoinNode)
+                  branchString += self.umlWriteTransition(stateNodes[-1], JoinNode)
+                  AppendJoin = True
+                ReturnToJoin == True # reset for the elsif block
+                    
                 # write transition from parent to new node
                 if newNode.getParentNode() == None:
                   eMsg = f"[Line {i}] ERROR: Failed to create new ELSIF, parentNode==None.\nReturning Early..."
@@ -124,6 +144,7 @@ class PlantUmlGenerator():
                 else:
                   branchString += self.umlWriteTransition(newNode.getParentNode(), newNode, newNode.getParentNode().getNotCondition())
                 stateNodes.append(newNode)
+              
               except:
                 eMsg = f"[Line {i}] ERROR: Failed to create new ELSIF node.\nReturning Early..."
                 return printUmlException(umlString, eMsg)
@@ -131,12 +152,16 @@ class PlantUmlGenerator():
             #search for ELSE statement
             elif Match := re.search("\s*ELSE\s*$", line):  
               try:      
+                      
                 
-                # Save the most recent sequence number
-                # TODO: Update sequence# at the method level
-                # tempSeqNum = stateNodes[-1].getSeqNum()
+                # Return the Most recent node to Join node if needed
+                if ReturnToJoin == True and stateNodes[-1].getCondition() == None:
+                  umlString += self.umlDeclareJoin(JoinNode)
+                  branchString += self.umlWriteTransition(stateNodes[-1], JoinNode)
+                  AppendJoin = True
+                ReturnToJoin == True # reset for the else block
                 
-                currentNodeLevel = stateNodes[-1].getLevel()          
+                currentNodeLevel = stateNodes[-1].getLevel()    
                 
                 # Clear nodes until we reach last conditional parent
                 while stateNodes[-1].getLevel() == currentNodeLevel:
@@ -151,14 +176,10 @@ class PlantUmlGenerator():
                 # Invert the last same-level condition
                 if stateNodes[-1] != None:
                   stateNodes[-1].invertCondition()
-                  # Update the head node's sequence number to avoid overwrite issues.
-                  # TODO: Update sequence# at the method level
-                  # stateNodes[-1].setSeqNum(tempSeqNum)
                 else:
                   # TODO ERROR
                   pass
-                
-      
+
               except:
                 traceback.print_exc()
                 eMsg = f"[Line {i}] ERROR: Failed to invert last IF/ELSIF to ELSE Node.\nReturning Early..."
@@ -167,17 +188,31 @@ class PlantUmlGenerator():
             # search for END_IF statement          
             elif Match := re.search(self.END_IF_RE, line):
               try:
+                
+                # Return the Most recent node to Join node if needed
+                if ReturnToJoin == True and stateNodes[-1].getCondition() == None:
+                  umlString += self.umlDeclareJoin(JoinNode)
+                  branchString += self.umlWriteTransition(stateNodes[-1], JoinNode)
+                  AppendJoin = True
+                    # will add the join node after popping the current layer...
+                   
                 # clear up all nodes at the current IF/ELSIF/ELSE level
                 currentNodeLevel = stateNodes[-1].getLevel()          
                 
-                while stateNodes[-1].getLevel() >= currentNodeLevel:
+                while stateNodes[-1].getLevel() == currentNodeLevel:
                   if stateNodes[-1].getParentNode() == None:
-                    break # Break if we are back at the first node
-                  if stateNodes[-1].getCondition() == None:
-                    # Return non-conditional nodes (function/FB calls) to base node
-                    branchString += self.umlWriteTransition(stateNodes[-1], stateNodes[-1].getBaseNode())
+                    stateNodes.pop()      
+                    # If we get back to first substate node, we will just start fresh with the next node.
+                    break
                   stateNodes.pop()      
-                        
+                  
+                # Add in the JoinNode for future nodes.    
+                if AppendJoin == True:
+                  # umlString += self.umlDeclareJoin(JoinNode)
+                  stateNodes.append(JoinNode)
+                  AppendJoin = False
+                  ReturnToJoin = False   
+                
               except:
                 eMsg = f"[Line {i}] ERROR: Failed to END_IF.\nReturning Early..."
                 traceback.print_exc()
@@ -191,23 +226,25 @@ class PlantUmlGenerator():
                     # ...inner loop should never call the outer loop change method.
                     continue
                 try:   
+                  ReturnToJoin = False
                   if Match := re.search("^\s*Change(Inner|Outer)State\(([\w\s\.]+:=\s*|\s*)(\w+\.|\s*)(\w+)\s*\)", line):
                     # Add to the branch string showing transition at subState level, using current condition (if any)
                     destState = f"{caseVar}_{Match.group(4)}"
                     srcState = subState
-                    # Show the transition between substates using the most recent conditional node
-                    # BUG: This will need to be updated when we have a state change but...
-                    # ...There may be other nodes to visit as part of the current level's condition...
-                    # ... So the exit condition shoudl really be dealt with at the END_IF point.
-                    lastConditionalState = self.getLastSameLevelConditionalParent(stateNodes)
-                    if lastConditionalState != None:
-                      umlString += makeBranchStringConditional(lastConditionalState.getId(), '[*]', lastConditionalState.getCondition())
-                      branchString += makeBranchStringConditional(srcState,destState, lastConditionalState.getCondition())
+                    newName = f"ChangeState"
+                    transition = f"{srcState}->{destState}"
+                    sequenceNum+=1
+                    newNode = StateNode(lastNode=stateNodes[-1], parentState=subState, sequenceNum=sequenceNum, name=newName)
+                    umlString += self.umlDeclareNamedNode(newNode)
+                                   
+                    if newNode.getParentNode() != None:
+                      umlString += self.umlWriteTransition(newNode.getParentNode(), newNode, newNode.getParentNode().getCondition())
+                      umlString += makeBranchString(newNode.getId(), '[*]', transition)
+                      branchString += makeBranchString(srcState,destState, transition, downArrow=True)
                     else:
-                      # No condition, just a transition
-                      umlString += makeBranchString('[*]', '[*]')
-                      branchString += makeBranchString(srcState, destState)
-
+                      umlString += makeBranchString('[*]', '[*]', transition)
+                      branchString += makeBranchString(srcState, destState, transition,downArrow=True)
+                    
                 except:  
                   traceback.print_exc()    
                   eMsg = f"[Line {i}] ERROR: Failed to parse Change(Inner|Outer)State() Call.\nRETURNING EARLY...\n"
@@ -221,7 +258,6 @@ class PlantUmlGenerator():
             # elif Match := re.search("^\s"+caseVar+"\s*:=\s*(\w+)\w*;", line):
             #   pass  
             
-            
             # Search for any fbEventHandler Calls for napID specific parsing
             elif Match := re.search("^\s*fbEventHandler\((.*E_Event\.(\w*|).*)\)\s*;\s*$", line):
               try:
@@ -230,7 +266,7 @@ class PlantUmlGenerator():
                 newNode = StateNode(lastNode=stateNodes[-1], parentState=subState, sequenceNum=sequenceNum, name=newName)
                 umlString += self.umlDeclareNamedNode(newNode)
                 if newNode.getParentNode() == None:
-                  umlString +=  makeBranchStringConditional("[*]", newNode.getId(), "START")
+                  umlString +=  makeBranchString("[*]", newNode.getId(), "START")
                 else:
                   branchString += self.umlWriteTransition(newNode.getParentNode(), newNode, newNode.getParentNode().getCondition())
                 stateNodes.append(newNode)
@@ -248,7 +284,7 @@ class PlantUmlGenerator():
                 newNode = StateNode(lastNode=stateNodes[-1], parentState=subState, sequenceNum=sequenceNum, name=filteredMatch)
                 umlString += self.umlDeclareNamedNode(newNode)
                 if newNode.getParentNode() == None:
-                  umlString +=  makeBranchStringConditional("[*]", newNode.getId(), "START")
+                  umlString +=  makeBranchString("[*]", newNode.getId(), "START")
                 else:
                   branchString += self.umlWriteTransition(newNode.getParentNode(), newNode, newNode.getParentNode().getCondition())
                 stateNodes.append(newNode)
@@ -264,7 +300,7 @@ class PlantUmlGenerator():
                 newNode = StateNode(lastNode=stateNodes[-1], parentState=subState, sequenceNum=sequenceNum, name=Match.group(1))
                 umlString += self.umlDeclareNamedNode(newNode)
                 if newNode.getParentNode() == None:
-                  umlString +=  makeBranchStringConditional("[*]", newNode.getId(), "START")
+                  umlString +=  makeBranchString("[*]", newNode.getId(), "START")
                 else:
                   branchString += self.umlWriteTransition(newNode.getParentNode(), newNode, newNode.getParentNode().getCondition())
                 stateNodes.append(newNode)
@@ -276,21 +312,37 @@ class PlantUmlGenerator():
             # Check for bError being flagged
             elif Match := re.search("(bError\s*:=\s*TRUE)", line):
               try:
-                # newName = "ERROR!"
-                # newNode = StateNode(lastNode=stateNodes[-1], parentState=subState, name=newName)
-                # umlString += self.umlDeclareNamedNode(newNode, error=True)
-                # umlString += self.umlWriteTransition(newNode.getParentNode(), newNode, newNode.getParentNode().getCondition())
-                # umlString += makeBranchStringConditional(newNode.getId(), '[*]', 'bError:=TRUE')
-                branchString += makeBranchStringConditional(stateNodes[-1].getId(), errorExit, stateNodes[-1].getCondition())
-                # branchString += makeBranchStringConditional(errorExit, '[*]', 'bError:=TRUE')
-                # Update the previous sequence number, we do not need to save the Error state to the stack
-                # TODO: Update sequence# at the method level
-                # stateNodes[-1].setSeqNum(newNode.getSeqNum())
+                ReturnToJoin = False
+                lastConditionalState = self.getLastSameLevelConditionalParent(stateNodes)
+                if lastConditionalState != None:
+                  branchString += makeBranchString(stateNodes[-1].getId(), errorExit, lastConditionalState.getCondition())
+                else: 
+                  # Probably shouldnt be showing an error without a condition, lol....
+                  print(f"[Line {i}] WTF you doing with bError=TRUE but no condition??!?!?!?!")
+                  branchString += makeBranchString(stateNodes[-1].getId(), errorExit)
               except:
                 traceback.print_exc()
                 eMsg = f"[Line {i}] ERROR: Failed to parse bError line: \n\t{Match.groups(0)}\nReturning Early..."
                 printUmlException(umlString, eMsg)
-      
+            
+            # Append all other extraneous assignments
+            elif ":=" in line and "sErrorDetails" not in line:
+              try:
+                sequenceNum+=1
+                newName = line.strip()
+                newNode = StateNode(lastNode=stateNodes[-1], parentState=subState, sequenceNum=sequenceNum, name=newName)
+                umlString += self.umlDeclareNamedNode(newNode)
+                if newNode.getParentNode() == None:
+                  umlString +=  makeBranchString("[*]", newNode.getId(), "START")
+                else:
+                  branchString += self.umlWriteTransition(newNode.getParentNode(), newNode, newNode.getParentNode().getCondition())
+                stateNodes.append(newNode)
+                ReturnToJoin = True
+              except:    
+                traceback.print_exc()      
+                eMsg = f"[Line {i}] ERROR: Failed to parse ':=' Assignment Line'.\nReturning Early..."
+                printUmlException(umlString, eMsg)
+                
     def convertCaseToUML(self, parsedCaseCode, caseVar):
       """
         Inputs:
@@ -313,7 +365,7 @@ class PlantUmlGenerator():
       umlString = ""                  # Return string    
       stateStart = None               # Input to convertSubStateToUML()
       stateEnd = None                 # Input to convertSubStateToUML()
-      stateNodes = []   
+      # stateNodes = []   
       subStates = []                  # Holds substates within a case found in the caseStates stack
       caseStates = []                 # Holds the raw values found in code so they are searchable later
       # caseStatesHash = {}             # Holds the raw state key, found in ST, and unique UML state value for generation
@@ -443,8 +495,8 @@ class PlantUmlGenerator():
           case UMLGenerationState.FINISH_CASE:
             pass
             
-      umlString += f"{caseStates[-1]} : {preCaseCode}\n"
-      umlString += f"{caseStates[-1]} : {postCaseCode}\n"
+      umlString += f"{caseStates[-1]} : {preCaseCode.strip()}\n"
+      umlString += f"{caseStates[-1]} : {postCaseCode.strip()}\n"
       return umlString    
 
 

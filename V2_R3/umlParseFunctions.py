@@ -12,7 +12,7 @@ def findCallEncoding(line):
  
 
 def removeComments(line):
-     Match = re.search("^.*([\/]{2,}.*)$", line)
+     Match = re.search("(\/\/.*)$", line)
      buffer = ""
      if Match:
          # Check for special instruction
@@ -20,7 +20,8 @@ def removeComments(line):
          if CustomMatch:
             return CustomMatch.group(1).strip()
          else:
-            return Match.group(0).replace(Match.group(1), "")
+            # print(line.replace(Match.group(1), ""))
+            return line.replace(Match.group(1), "")
      else:
          return line
      
@@ -28,7 +29,8 @@ def removeEmptyLines(lines):
     buffer = ""
     for line in lines.splitlines():
         if line.strip() != "":
-            buffer += line + "\n"
+            # buffer += line.replace(" THIS^.", "") + "\n"
+            buffer += line.replace("THIS^.","") + "\n"
     return buffer
 
 

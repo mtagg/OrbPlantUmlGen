@@ -1,0 +1,238 @@
+@startuml State Diagram
+
+!theme plain
+'skin rose
+left to right direction
+hide empty description
+'!theme reddress-lightgreen
+title FB_SelfTest State Diagram
+
+
+
+state FB_SelfTest{
+
+state eInnerState #84b1f5 {
+	[*] --> eInnerState_Idle : START
+	state eInnerState_Idle #lightblue {
+state "ERROR" as eInnerState_Idle_ERROR <<exitPoint>> #ff3333
+	state eInnerState_Idle_Node_1 <<choice>>
+	[*] ---> eInnerState_Idle_Node_1 : START
+	state "bStart := FALSE;" as eInnerState_Idle_Node_3 
+	state "ChangeState" as eInnerState_Idle_Node_4 
+	eInnerState_Idle_Node_3 ---> eInnerState_Idle_Node_4
+	eInnerState_Idle_Node_4 ---> [*] : eInnerState_Idle->eInnerState_HomeStepper1
+	}
+	state eInnerState_HomeStepper1 #lightblue {
+state "ERROR" as eInnerState_HomeStepper1_ERROR <<exitPoint>> #ff3333
+	state eInnerState_HomeStepper1_Node_1 <<choice>>
+	[*] ---> eInnerState_HomeStepper1_Node_1 : START
+	state "fbEventHandler(SYSTEM_IN_UNEXPECTED_STATE)" as eInnerState_HomeStepper1_Node_3 
+		state eInnerState_HomeStepper1_Node_4 <<choice>>
+		state "fbEventHandler(UNABLE_TO_START_TASK)" as eInnerState_HomeStepper1_Node_6 
+		state "fbStepper.ErrorAck := TRUE;" as eInnerState_HomeStepper1_Node_7 
+		state "fbStepper.bStartHoming:=TRUE;" as eInnerState_HomeStepper1_Node_8 
+		state "ChangeState" as eInnerState_HomeStepper1_Node_9 
+	eInnerState_HomeStepper1_Node_8 ---> eInnerState_HomeStepper1_Node_9
+	eInnerState_HomeStepper1_Node_9 ---> [*] : eInnerState_HomeStepper1->eInnerState_HomeStepper2
+	}
+	state eInnerState_HomeStepper2 #lightblue {
+state "ERROR" as eInnerState_HomeStepper2_ERROR <<exitPoint>> #ff3333
+	state eInnerState_HomeStepper2_Node_1 <<choice>>
+	[*] ---> eInnerState_HomeStepper2_Node_1 : START
+		state eInnerState_HomeStepper2_Node_3 <<choice>>
+		state "fbEventHandler(TASK_FAILED)" as eInnerState_HomeStepper2_Node_5 
+		state "fbStepper.ErrorAck:=TRUE;" as eInnerState_HomeStepper2_Node_6 
+			state eInnerState_HomeStepper2_Node_7 <<choice>>
+			state "ChangeState" as eInnerState_HomeStepper2_Node_8 
+	eInnerState_HomeStepper2_Node_7 ---> eInnerState_HomeStepper2_Node_8 : (fbStepper.Homed)
+	eInnerState_HomeStepper2_Node_8 ---> [*] : eInnerState_HomeStepper2->eInnerState_HomeLinearActuator1
+			state "fbEventHandler(TASK_FAILED)" as eInnerState_HomeStepper2_Node_9 
+	}
+	state eInnerState_HomeLinearActuator1 #lightblue {
+state "ERROR" as eInnerState_HomeLinearActuator1_ERROR <<exitPoint>> #ff3333
+	state eInnerState_HomeLinearActuator1_Node_1 <<choice>>
+	[*] ---> eInnerState_HomeLinearActuator1_Node_1 : START
+	state "fbEventHandler(SYSTEM_IN_UNEXPECTED_STATE)" as eInnerState_HomeLinearActuator1_Node_3 
+		state eInnerState_HomeLinearActuator1_Node_4 <<choice>>
+		state "fbEventHandler(UNABLE_TO_START_TASK)" as eInnerState_HomeLinearActuator1_Node_6 
+		state "fbLinearActuator.ErrorAck := TRUE;" as eInnerState_HomeLinearActuator1_Node_7 
+		state "fbLinearActuator.bStartHoming:=TRUE;" as eInnerState_HomeLinearActuator1_Node_8 
+		state "ChangeState" as eInnerState_HomeLinearActuator1_Node_9 
+	eInnerState_HomeLinearActuator1_Node_8 ---> eInnerState_HomeLinearActuator1_Node_9
+	eInnerState_HomeLinearActuator1_Node_9 ---> [*] : eInnerState_HomeLinearActuator1->eInnerState_HomeLinearActuator2
+	}
+	state eInnerState_HomeLinearActuator2 #lightblue {
+state "ERROR" as eInnerState_HomeLinearActuator2_ERROR <<exitPoint>> #ff3333
+	state eInnerState_HomeLinearActuator2_Node_1 <<choice>>
+	[*] ---> eInnerState_HomeLinearActuator2_Node_1 : START
+		state eInnerState_HomeLinearActuator2_Node_3 <<choice>>
+		state "fbEventHandler(TASK_FAILED)" as eInnerState_HomeLinearActuator2_Node_5 
+		state "fbLinearActuator.ErrorAck:=TRUE;" as eInnerState_HomeLinearActuator2_Node_6 
+			state eInnerState_HomeLinearActuator2_Node_7 <<choice>>
+			state "ChangeState" as eInnerState_HomeLinearActuator2_Node_8 
+	eInnerState_HomeLinearActuator2_Node_7 ---> eInnerState_HomeLinearActuator2_Node_8 : (fbLinearActuator.Homed)
+	eInnerState_HomeLinearActuator2_Node_8 ---> [*] : eInnerState_HomeLinearActuator2->eInnerState_DisableMotors1
+			state "fbEventHandler(TASK_FAILED)" as eInnerState_HomeLinearActuator2_Node_9 
+	}
+	state eInnerState_DisableMotors1 #lightblue {
+state "ERROR" as eInnerState_DisableMotors1_ERROR <<exitPoint>> #ff3333
+	state eInnerState_DisableMotors1_Node_1 <<choice>>
+	[*] ---> eInnerState_DisableMotors1_Node_1 : START
+	state "fbEventHandler(SYSTEM_IN_UNEXPECTED_STATE)" as eInnerState_DisableMotors1_Node_3 
+	state "fbLinearActuator.bDisableAxis := TRUE;" as eInnerState_DisableMotors1_Node_4 
+	state "fbStepper.bDisableAxis := TRUE;" as eInnerState_DisableMotors1_Node_5 
+	state "ChangeState" as eInnerState_DisableMotors1_Node_6 
+	eInnerState_DisableMotors1_Node_5 ---> eInnerState_DisableMotors1_Node_6
+	eInnerState_DisableMotors1_Node_6 ---> [*] : eInnerState_DisableMotors1->eInnerState_DisableMotors2
+	}
+	state eInnerState_DisableMotors2 #lightblue {
+state "ERROR" as eInnerState_DisableMotors2_ERROR <<exitPoint>> #ff3333
+	state eInnerState_DisableMotors2_Node_1 <<choice>>
+	[*] ---> eInnerState_DisableMotors2_Node_1 : START
+	state "bMotorsDisabled := FALSE;" as eInnerState_DisableMotors2_Node_3 
+	state eInnerState_DisableMotors2_Node_4 <<choice>>
+	state eInnerState_DisableMotors2_Node_2 <<join>>
+	state "bMotorsDisabled := FALSE;" as eInnerState_DisableMotors2_Node_5 
+	state "fbEventHandler(UNABLE_TO_COMPLETE_TASK)" as eInnerState_DisableMotors2_Node_6 
+	state "fbLinearActuator.ErrorAck := TRUE;" as eInnerState_DisableMotors2_Node_7 
+		state eInnerState_DisableMotors2_Node_8 <<choice>>
+		state "bMotorsDisabled := FALSE;" as eInnerState_DisableMotors2_Node_10 
+		state eInnerState_DisableMotors2_Node_11 <<choice>>
+	state eInnerState_DisableMotors2_Node_9 <<join>>
+		state "bMotorsDisabled := FALSE;" as eInnerState_DisableMotors2_Node_12 
+		state "fbEventHandler(UNABLE_TO_COMPLETE_TASK)" as eInnerState_DisableMotors2_Node_13 
+		state "fbStepper.ErrorAck := TRUE;" as eInnerState_DisableMotors2_Node_14 
+		state eInnerState_DisableMotors2_Node_15 <<choice>>
+		state "ChangeState" as eInnerState_DisableMotors2_Node_17 
+	eInnerState_DisableMotors2_Node_15 ---> eInnerState_DisableMotors2_Node_17 : (bMotorsDisabled)
+	eInnerState_DisableMotors2_Node_17 ---> [*] : eInnerState_DisableMotors2->eInnerState_CalibrateJoints1
+	}
+	state eInnerState_CalibrateJoints1 #lightblue {
+state "ERROR" as eInnerState_CalibrateJoints1_ERROR <<exitPoint>> #ff3333
+	state eInnerState_CalibrateJoints1_Node_1 <<choice>>
+	[*] ---> eInnerState_CalibrateJoints1_Node_1 : START
+	state "fbEventHandler(SYSTEM_IN_UNEXPECTED_STATE)" as eInnerState_CalibrateJoints1_Node_3 
+		state eInnerState_CalibrateJoints1_Node_4 <<choice>>
+		state "fbEventHandler(UNABLE_TO_START_TASK)" as eInnerState_CalibrateJoints1_Node_6 
+		state "fbAllJoints.ErrorAck := TRUE;" as eInnerState_CalibrateJoints1_Node_7 
+		state "fbAllJoints.bStartCalibration:=TRUE;" as eInnerState_CalibrateJoints1_Node_8 
+		state "ChangeState" as eInnerState_CalibrateJoints1_Node_9 
+	eInnerState_CalibrateJoints1_Node_8 ---> eInnerState_CalibrateJoints1_Node_9
+	eInnerState_CalibrateJoints1_Node_9 ---> [*] : eInnerState_CalibrateJoints1->eInnerState_CalibrateJoints2
+	}
+	state eInnerState_CalibrateJoints2 #lightblue {
+state "ERROR" as eInnerState_CalibrateJoints2_ERROR <<exitPoint>> #ff3333
+	state eInnerState_CalibrateJoints2_Node_1 <<choice>>
+	[*] ---> eInnerState_CalibrateJoints2_Node_1 : START
+		state eInnerState_CalibrateJoints2_Node_3 <<choice>>
+		state "fbEventHandler(TASK_FAILED)" as eInnerState_CalibrateJoints2_Node_5 
+		state "fbAllJoints.ErrorAck:=TRUE;" as eInnerState_CalibrateJoints2_Node_6 
+			state eInnerState_CalibrateJoints2_Node_7 <<choice>>
+			state "ChangeState" as eInnerState_CalibrateJoints2_Node_8 
+	eInnerState_CalibrateJoints2_Node_7 ---> eInnerState_CalibrateJoints2_Node_8 : (fbAllJoints.Calibrated)
+	eInnerState_CalibrateJoints2_Node_8 ---> [*] : eInnerState_CalibrateJoints2->eInnerState_CheckEncoderCalibration1
+			state "fbEventHandler(TASK_FAILED)" as eInnerState_CalibrateJoints2_Node_9 
+	}
+	state eInnerState_CheckEncoderCalibration1 #lightblue {
+state "ERROR" as eInnerState_CheckEncoderCalibration1_ERROR <<exitPoint>> #ff3333
+	state "ChangeState" as eInnerState_CheckEncoderCalibration1_Node_1 
+	[*] ---> [*] : eInnerState_CheckEncoderCalibration1->eInnerState_CheckEncoderCalibration2
+	}
+	state eInnerState_CheckEncoderCalibration2 #lightblue {
+state "ERROR" as eInnerState_CheckEncoderCalibration2_ERROR <<exitPoint>> #ff3333
+	state "ChangeState" as eInnerState_CheckEncoderCalibration2_Node_1 
+	[*] ---> [*] : eInnerState_CheckEncoderCalibration2->eInnerState_WrapUp
+	}
+	state eInnerState_WrapUp #lightblue {
+state "ERROR" as eInnerState_WrapUp_ERROR <<exitPoint>> #ff3333
+	state "bCompleted := TRUE;" as eInnerState_WrapUp_Node_1 
+	[*] ---> eInnerState_WrapUp_Node_1 : START
+	state "dtTimeCompleted := DateTime.GVL_DATE_TIME;" as eInnerState_WrapUp_Node_2 
+	state "ChangeState" as eInnerState_WrapUp_Node_3 
+	eInnerState_WrapUp_Node_2 ---> eInnerState_WrapUp_Node_3
+	eInnerState_WrapUp_Node_3 ---> [*] : eInnerState_WrapUp->eInnerState_Idle
+	}
+	}
+	eInnerState_Idle_Node_1 ---> eInnerState_Idle_Node_3 : (bStart)
+	eInnerState_Idle ---> eInnerState_HomeStepper1 : eInnerState_Idle->eInnerState_HomeStepper1
+	eInnerState_HomeStepper1_Node_1 ---> eInnerState_HomeStepper1_Node_3 : (fbStepper.Busy)
+	eInnerState_HomeStepper1_Node_3 ---> eInnerState_HomeStepper1_ERROR : (fbStepper.Busy)
+	eInnerState_HomeStepper1_Node_1 ---> eInnerState_HomeStepper1_Node_4 : (NOT (fbStepper.Busy))
+	eInnerState_HomeStepper1_Node_4 ---> eInnerState_HomeStepper1_Node_6 : (fbStepper.bError)
+	eInnerState_HomeStepper1_Node_6 ---> eInnerState_HomeStepper1_Node_7
+	eInnerState_HomeStepper1_Node_7 ---> eInnerState_HomeStepper1_ERROR : (fbStepper.bError)
+	eInnerState_HomeStepper1_Node_4 ---> eInnerState_HomeStepper1_Node_8 : (NOT (fbStepper.bError))
+	eInnerState_HomeStepper1 ---> eInnerState_HomeStepper2 : eInnerState_HomeStepper1->eInnerState_HomeStepper2
+	eInnerState_HomeStepper2_Node_1 ---> eInnerState_HomeStepper2_Node_3 : (NOT (fbStepper.Busy))
+	eInnerState_HomeStepper2_Node_3 ---> eInnerState_HomeStepper2_Node_5 : (fbStepper.bError)
+	eInnerState_HomeStepper2_Node_5 ---> eInnerState_HomeStepper2_Node_6
+	eInnerState_HomeStepper2_Node_6 ---> eInnerState_HomeStepper2_ERROR : (fbStepper.bError)
+	eInnerState_HomeStepper2_Node_3 ---> eInnerState_HomeStepper2_Node_7 : (NOT (fbStepper.bError))
+	eInnerState_HomeStepper2 ---> eInnerState_HomeLinearActuator1 : eInnerState_HomeStepper2->eInnerState_HomeLinearActuator1
+	eInnerState_HomeStepper2_Node_7 ---> eInnerState_HomeStepper2_Node_9 : (NOT (fbStepper.Homed))
+	eInnerState_HomeStepper2_Node_9 ---> eInnerState_HomeStepper2_ERROR : (NOT (fbStepper.Homed))
+	eInnerState_HomeLinearActuator1_Node_1 ---> eInnerState_HomeLinearActuator1_Node_3 : (fbLinearActuator.Busy)
+	eInnerState_HomeLinearActuator1_Node_3 ---> eInnerState_HomeLinearActuator1_ERROR : (fbLinearActuator.Busy)
+	eInnerState_HomeLinearActuator1_Node_1 ---> eInnerState_HomeLinearActuator1_Node_4 : (NOT (fbLinearActuator.Busy))
+	eInnerState_HomeLinearActuator1_Node_4 ---> eInnerState_HomeLinearActuator1_Node_6 : (fbLinearActuator.bError)
+	eInnerState_HomeLinearActuator1_Node_6 ---> eInnerState_HomeLinearActuator1_Node_7
+	eInnerState_HomeLinearActuator1_Node_7 ---> eInnerState_HomeLinearActuator1_ERROR : (fbLinearActuator.bError)
+	eInnerState_HomeLinearActuator1_Node_4 ---> eInnerState_HomeLinearActuator1_Node_8 : (NOT (fbLinearActuator.bError))
+	eInnerState_HomeLinearActuator1 ---> eInnerState_HomeLinearActuator2 : eInnerState_HomeLinearActuator1->eInnerState_HomeLinearActuator2
+	eInnerState_HomeLinearActuator2_Node_1 ---> eInnerState_HomeLinearActuator2_Node_3 : (NOT (fbLinearActuator.Busy))
+	eInnerState_HomeLinearActuator2_Node_3 ---> eInnerState_HomeLinearActuator2_Node_5 : (fbLinearActuator.bError)
+	eInnerState_HomeLinearActuator2_Node_5 ---> eInnerState_HomeLinearActuator2_Node_6
+	eInnerState_HomeLinearActuator2_Node_6 ---> eInnerState_HomeLinearActuator2_ERROR : (fbLinearActuator.bError)
+	eInnerState_HomeLinearActuator2_Node_3 ---> eInnerState_HomeLinearActuator2_Node_7 : (NOT (fbLinearActuator.bError))
+	eInnerState_HomeLinearActuator2 ---> eInnerState_DisableMotors1 : eInnerState_HomeLinearActuator2->eInnerState_DisableMotors1
+	eInnerState_HomeLinearActuator2_Node_7 ---> eInnerState_HomeLinearActuator2_Node_9 : (NOT (fbLinearActuator.Homed))
+	eInnerState_HomeLinearActuator2_Node_9 ---> eInnerState_HomeLinearActuator2_ERROR : (NOT (fbLinearActuator.Homed))
+	eInnerState_DisableMotors1_Node_1 ---> eInnerState_DisableMotors1_Node_3 : (NOT (fbStepper.Ready\nAND fbLinearActuator.Ready))
+	eInnerState_DisableMotors1_Node_3 ---> eInnerState_DisableMotors1_ERROR : (NOT (fbStepper.Ready\nAND fbLinearActuator.Ready))
+	eInnerState_DisableMotors1_Node_1 ---> eInnerState_DisableMotors1_Node_4 : ((fbStepper.Ready\nAND fbLinearActuator.Ready))
+	eInnerState_DisableMotors1_Node_4 ---> eInnerState_DisableMotors1_Node_5
+	eInnerState_DisableMotors1 ---> eInnerState_DisableMotors2 : eInnerState_DisableMotors1->eInnerState_DisableMotors2
+	eInnerState_DisableMotors2_Node_1 ---> eInnerState_DisableMotors2_Node_3 : (fbLinearActuator.Busy)
+	eInnerState_DisableMotors2_Node_3 ---> eInnerState_DisableMotors2_Node_2
+	eInnerState_DisableMotors2_Node_1 ---> eInnerState_DisableMotors2_Node_4 : (NOT (fbLinearActuator.Busy))
+	eInnerState_DisableMotors2_Node_4 ---> eInnerState_DisableMotors2_Node_5 : (fbLinearActuator.bError)
+	eInnerState_DisableMotors2_Node_5 ---> eInnerState_DisableMotors2_Node_6
+	eInnerState_DisableMotors2_Node_6 ---> eInnerState_DisableMotors2_Node_7
+	eInnerState_DisableMotors2_Node_7 ---> eInnerState_DisableMotors2_ERROR : (fbLinearActuator.bError)
+	eInnerState_DisableMotors2_Node_2 ---> eInnerState_DisableMotors2_Node_8
+	eInnerState_DisableMotors2_Node_8 ---> eInnerState_DisableMotors2_Node_10 : (fbStepper.Busy)
+	eInnerState_DisableMotors2_Node_10 ---> eInnerState_DisableMotors2_Node_9
+	eInnerState_DisableMotors2_Node_8 ---> eInnerState_DisableMotors2_Node_11 : (NOT (fbStepper.Busy))
+	eInnerState_DisableMotors2_Node_11 ---> eInnerState_DisableMotors2_Node_12 : (fbStepper.bError)
+	eInnerState_DisableMotors2_Node_12 ---> eInnerState_DisableMotors2_Node_13
+	eInnerState_DisableMotors2_Node_13 ---> eInnerState_DisableMotors2_Node_14
+	eInnerState_DisableMotors2_Node_14 ---> eInnerState_DisableMotors2_ERROR : (fbStepper.bError)
+	eInnerState_DisableMotors2_Node_9 ---> eInnerState_DisableMotors2_Node_15
+	eInnerState_DisableMotors2 ---> eInnerState_CalibrateJoints1 : eInnerState_DisableMotors2->eInnerState_CalibrateJoints1
+	eInnerState_CalibrateJoints1_Node_1 ---> eInnerState_CalibrateJoints1_Node_3 : (fbAllJoints.Busy)
+	eInnerState_CalibrateJoints1_Node_3 ---> eInnerState_CalibrateJoints1_ERROR : (fbAllJoints.Busy)
+	eInnerState_CalibrateJoints1_Node_1 ---> eInnerState_CalibrateJoints1_Node_4 : (NOT (fbAllJoints.Busy))
+	eInnerState_CalibrateJoints1_Node_4 ---> eInnerState_CalibrateJoints1_Node_6 : (fbAllJoints.bError)
+	eInnerState_CalibrateJoints1_Node_6 ---> eInnerState_CalibrateJoints1_Node_7
+	eInnerState_CalibrateJoints1_Node_7 ---> eInnerState_CalibrateJoints1_ERROR : (fbAllJoints.bError)
+	eInnerState_CalibrateJoints1_Node_4 ---> eInnerState_CalibrateJoints1_Node_8 : (NOT (fbAllJoints.bError))
+	eInnerState_CalibrateJoints1 ---> eInnerState_CalibrateJoints2 : eInnerState_CalibrateJoints1->eInnerState_CalibrateJoints2
+	eInnerState_CalibrateJoints2_Node_1 ---> eInnerState_CalibrateJoints2_Node_3 : (NOT (fbAllJoints.Busy))
+	eInnerState_CalibrateJoints2_Node_3 ---> eInnerState_CalibrateJoints2_Node_5 : (fbAllJoints.bError)
+	eInnerState_CalibrateJoints2_Node_5 ---> eInnerState_CalibrateJoints2_Node_6
+	eInnerState_CalibrateJoints2_Node_6 ---> eInnerState_CalibrateJoints2_ERROR : (fbAllJoints.bError)
+	eInnerState_CalibrateJoints2_Node_3 ---> eInnerState_CalibrateJoints2_Node_7 : (NOT (fbAllJoints.bError))
+	eInnerState_CalibrateJoints2 ---> eInnerState_CheckEncoderCalibration1 : eInnerState_CalibrateJoints2->eInnerState_CheckEncoderCalibration1
+	eInnerState_CalibrateJoints2_Node_7 ---> eInnerState_CalibrateJoints2_Node_9 : (NOT (fbAllJoints.Calibrated))
+	eInnerState_CalibrateJoints2_Node_9 ---> eInnerState_CalibrateJoints2_ERROR : (NOT (fbAllJoints.Calibrated))
+	eInnerState_CheckEncoderCalibration1 ---> eInnerState_CheckEncoderCalibration2 : eInnerState_CheckEncoderCalibration1->eInnerState_CheckEncoderCalibration2
+	eInnerState_CheckEncoderCalibration2 ---> eInnerState_WrapUp : eInnerState_CheckEncoderCalibration2->eInnerState_WrapUp
+	eInnerState_WrapUp_Node_1 ---> eInnerState_WrapUp_Node_2
+	eInnerState_WrapUp ---> eInnerState_Idle : eInnerState_WrapUp->eInnerState_Idle
+eInnerState : 
+eInnerState : 
+
+
+}
+
+@enduml

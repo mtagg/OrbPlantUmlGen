@@ -17,11 +17,12 @@ class StateNode ():
         isIf        : indicates if the node is an If statement
     """
     # Constructor
-    def __init__(self, lastNode, parentState, sequenceNum, name=None, condition=None, isElsif=False, isIf=False) -> bool:
+    def __init__(self, lastNode, parentState, sequenceNum, name=None, condition=None, isElsif=False, isIf=False, isJoin=False) -> bool:
+      
         self.name = name             
-        self.nextNode = None
-        self.parentNode = None
-        self.condition = condition
+        self.nextNode = None  
+        self.parentNode = lastNode
+        self.condition = condition 
         self.isIf = isIf
         self.isElsif = isElsif
         self.seqNum = sequenceNum
@@ -29,18 +30,17 @@ class StateNode ():
         
         if lastNode != None:
           lastNode.setNextNode(self)
-          # self.seqNum = lastNode.getSeqNum() + 1
               
           if isElsif:
             tempParent = lastNode
+            # Look for last conditional node/IF statement
             while tempParent != None:
-              if tempParent.getCondition() is None:
-                tempParent = tempParent.getParentNode()
-              else:
-                # Found an adequate parent node for an ELSE statement
+              if tempParent.getIsIf() or tempParent.getIsElsif():
                 self.parentNode = tempParent
                 self.nodeLevel = self.parentNode.getLevel()
                 break # exit while
+              else:
+                tempParent = tempParent.getParentNode()
               if self.parentNode is None:
                 print(f"Error! tried to create ELSIF node: {self.name}, without a parent condition.\nExiting. . . ")
                 return
@@ -49,24 +49,25 @@ class StateNode ():
             self.parentNode = lastNode
             self.nodeLevel = lastNode.getLevel() + 1
             
-
+          elif isJoin:
+            self.parentNode = lastNode
+            self.nodeLevel = 0
+            
           else: # Not a conditional
             self.parentNode = lastNode 
             self.nodeLevel = self.parentNode.getLevel()
-            self.condition = lastNode.getCondition()
 
         else: # First node
-          # print("First Node: ")
+        #   # print("First Node: ")
           self.nodeLevel = 0
           self.parentNode = None
-          self.condition = condition
-          # self.seqNum = 0
           
         
         self.id = f'{str(parentState)}_Node_{str(self.seqNum)}'
         # print(f"Created New Node:")
         # print(self.printout())
-        # End Constructor
+        
+    # End Constructor
           
     def getIsIf(self) -> bool:
       return self.isIf
@@ -117,6 +118,16 @@ class StateNode ():
         return self.condition
       else:
         return self.condition.replace(" AND ", "\\nAND ").replace(" OR ", "\\nOR ")
+      
+    ## Unfinished:
+    # def getParentCondtition(self) -> str:
+    #   # Warning: Can return None Type
+    #   tempNode = self
+    #   while tempNode != None:
+    #     if tempNode.condition != None:
+    #       return tempNode.condition.replace(" AND ", "\\nAND ").replace(" OR ", "\\nOR ")
+    #     else:
+    #       tempNode = tempNode.parentNode
     
     def invertCondition(self) -> None:
       # Warning: Does not update "None" type
@@ -132,6 +143,10 @@ class StateNode ():
       else:
         return None
       
+    def nullifyCondition(self) -> None:
+      self.condition = None
+      return
+    
     def setNextNode(self, node) -> None:
       self.NextNode = node
       return

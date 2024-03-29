@@ -1,0 +1,170 @@
+@startuml State Diagram
+
+!theme plain
+'skin rose
+left to right direction
+hide empty description
+'!theme reddress-lightgreen
+title FB_RemoteManipulatorInterface State Diagram
+
+
+
+state FB_RemoteManipulatorInterface{
+
+state eInnerState #84b1f5 {
+	[*] --> eInnerState_Idle : START
+	state eInnerState_Idle #lightblue {
+state "ERROR" as eInnerState_Idle_ERROR <<exitPoint>> #ff3333
+	state eInnerState_Idle_Node_1 <<choice>>
+	[*] ---> eInnerState_Idle_Node_1 : START
+	state "bEstablishComm := FALSE;" as eInnerState_Idle_Node_3 
+	state "tcpclient.bActive := TRUE;" as eInnerState_Idle_Node_4 
+	state "ChangeState" as eInnerState_Idle_Node_5 
+	eInnerState_Idle_Node_4 ---> eInnerState_Idle_Node_5
+	eInnerState_Idle_Node_5 ---> [*] : eInnerState_Idle->eInnerState_Connecting1
+	}
+	state eInnerState_Connecting1 #lightblue {
+state "ERROR" as eInnerState_Connecting1_ERROR <<exitPoint>> #ff3333
+	state "fbConnectTON()" as eInnerState_Connecting1_Node_1 
+	[*] ---> eInnerState_Connecting1_Node_1 : START
+	state "fbDataExchaTON()" as eInnerState_Connecting1_Node_2 
+	state "fbConnectTON()" as eInnerState_Connecting1_Node_3 
+	state "nCycleID := 1;" as eInnerState_Connecting1_Node_4 
+	state "stProcessedDataToRM.nCycleID := nCycleID;" as eInnerState_Connecting1_Node_5 
+	state "stDummyDataToRM.nCycleID := nCycleID;" as eInnerState_Connecting1_Node_6 
+	state "ChangeState" as eInnerState_Connecting1_Node_7 
+	eInnerState_Connecting1_Node_6 ---> eInnerState_Connecting1_Node_7
+	eInnerState_Connecting1_Node_7 ---> [*] : eInnerState_Connecting1->eInnerState_Connecting2
+	}
+	state eInnerState_Connecting2 #lightblue {
+state "ERROR" as eInnerState_Connecting2_ERROR <<exitPoint>> #ff3333
+	state "fbConnectTON()" as eInnerState_Connecting2_Node_1 
+	[*] ---> eInnerState_Connecting2_Node_1 : START
+	state "tcpclient()" as eInnerState_Connecting2_Node_2 
+		state eInnerState_Connecting2_Node_3 <<choice>>
+		state "fbConnectTON()" as eInnerState_Connecting2_Node_5 
+		state "ChangeState" as eInnerState_Connecting2_Node_6 
+	eInnerState_Connecting2_Node_5 ---> eInnerState_Connecting2_Node_6
+	eInnerState_Connecting2_Node_6 ---> [*] : eInnerState_Connecting2->eInnerState_DataExchange1
+			state eInnerState_Connecting2_Node_7 <<choice>>
+			state "fbConnectTON()" as eInnerState_Connecting2_Node_8 
+			state "fbEventHandler(TCP_CONNECTION_TIMEOUT)" as eInnerState_Connecting2_Node_9 
+	}
+	state eInnerState_DataExchange1 #lightblue {
+state "ERROR" as eInnerState_DataExchange1_ERROR <<exitPoint>> #ff3333
+	state eInnerState_DataExchange1_Node_1 <<choice>>
+	[*] ---> eInnerState_DataExchange1_Node_1 : START
+	state "bEndCommunication := FALSE;" as eInnerState_DataExchange1_Node_3 
+		state eInnerState_DataExchange1_Node_4 <<choice>>
+		state "ChangeState" as eInnerState_DataExchange1_Node_6 
+	eInnerState_DataExchange1_Node_4 ---> eInnerState_DataExchange1_Node_6 : (Connected)
+	eInnerState_DataExchange1_Node_6 ---> [*] : eInnerState_DataExchange1->eInnerState_CloseConnection1
+		state "fbEventHandler(SYSTEM_IN_UNEXPECTED_STATE)" as eInnerState_DataExchange1_Node_7 
+		state eInnerState_DataExchange1_Node_8 <<choice>>
+		state "nCycleID := nCycleID + 1;" as eInnerState_DataExchange1_Node_10 
+		state "stProcessedDataToRM.nCycleID := UINT_TO_LREAL(nCycleID);" as eInnerState_DataExchange1_Node_11 
+		state "stDummyDataToRM.nCycleID := UINT_TO_LREAL(nCycleID);" as eInnerState_DataExchange1_Node_12 
+			state eInnerState_DataExchange1_Node_13 <<choice>>
+			state "bSendMotionCommands := FALSE;" as eInnerState_DataExchange1_Node_14 
+			state "stDummyDataToRM := stProcessedDataToRM;" as eInnerState_DataExchange1_Node_15 
+			state "tcpclient()" as eInnerState_DataExchange1_Node_16 
+	state eInnerState_DataExchange1_Node_9 <<join>>
+			state "tcpclient()" as eInnerState_DataExchange1_Node_17 
+	state eInnerState_DataExchange1_Node_9 <<join>>
+		state "tcpclient()" as eInnerState_DataExchange1_Node_18 
+		state "fbEventHandler(TCP_TEMPORARY_CONNECTION_LOST)" as eInnerState_DataExchange1_Node_19 
+		state "fbDataExchaTON()" as eInnerState_DataExchange1_Node_20 
+		state "ChangeState" as eInnerState_DataExchange1_Node_21 
+	eInnerState_DataExchange1_Node_20 ---> eInnerState_DataExchange1_Node_21
+	eInnerState_DataExchange1_Node_21 ---> [*] : eInnerState_DataExchange1->eInnerState_DataExchange2
+	state eInnerState_DataExchange1_Node_22 <<choice>>
+	[*] ---> eInnerState_DataExchange1_Node_22 : START
+	state "fbEventHandler(TCP_CYCLE_ID_HIGH_DISCREPANCY)" as eInnerState_DataExchange1_Node_24 
+	state "fbDataExchaTON()" as eInnerState_DataExchange1_Node_25 
+	state "ChangeState" as eInnerState_DataExchange1_Node_26 
+	eInnerState_DataExchange1_Node_25 ---> eInnerState_DataExchange1_Node_26
+	eInnerState_DataExchange1_Node_26 ---> [*] : eInnerState_DataExchange1->eInnerState_DataExchange2
+	state "ResetTimeDerivatives()" as eInnerState_DataExchange1_Node_27 
+	[*] ---> eInnerState_DataExchange1_Node_27 : START
+	}
+	state eInnerState_DataExchange2 #lightblue {
+state "ERROR" as eInnerState_DataExchange2_ERROR <<exitPoint>> #ff3333
+	state "fbDataExchaTON()" as eInnerState_DataExchange2_Node_1 
+	[*] ---> eInnerState_DataExchange2_Node_1 : START
+		state eInnerState_DataExchange2_Node_2 <<choice>>
+		state "fbDataExchaTON()" as eInnerState_DataExchange2_Node_4 
+		state "ChangeState" as eInnerState_DataExchange2_Node_5 
+	eInnerState_DataExchange2_Node_4 ---> eInnerState_DataExchange2_Node_5
+	eInnerState_DataExchange2_Node_5 ---> [*] : eInnerState_DataExchange2->eInnerState_DataExchange1
+		state eInnerState_DataExchange2_Node_6 <<choice>>
+		state "fbDataExchaTON()" as eInnerState_DataExchange2_Node_7 
+		state "fbEventHandler(TCP_CONNETION_LOST)" as eInnerState_DataExchange2_Node_8 
+	}
+	state eInnerState_CloseConnection1 #lightblue {
+state "ERROR" as eInnerState_CloseConnection1_ERROR <<exitPoint>> #ff3333
+	state eInnerState_CloseConnection1_Node_1 <<choice>>
+	[*] ---> eInnerState_CloseConnection1_Node_1 : START
+	state "tcpclient()" as eInnerState_CloseConnection1_Node_3 
+	state eInnerState_CloseConnection1_Node_2 <<join>>
+	state "ChangeState" as eInnerState_CloseConnection1_Node_4 
+	eInnerState_CloseConnection1_Node_1 ---> eInnerState_CloseConnection1_Node_4 : (NOT (Connected))
+	eInnerState_CloseConnection1_Node_4 ---> [*] : eInnerState_CloseConnection1->eInnerState_Idle
+	}
+	}
+	eInnerState_Idle_Node_1 ---> eInnerState_Idle_Node_3 : (bEstablishComm)
+	eInnerState_Idle_Node_3 ---> eInnerState_Idle_Node_4
+	eInnerState_Idle ---> eInnerState_Connecting1 : eInnerState_Idle->eInnerState_Connecting1
+	eInnerState_Connecting1_Node_1 ---> eInnerState_Connecting1_Node_2
+	eInnerState_Connecting1_Node_2 ---> eInnerState_Connecting1_Node_3
+	eInnerState_Connecting1_Node_3 ---> eInnerState_Connecting1_Node_4
+	eInnerState_Connecting1_Node_4 ---> eInnerState_Connecting1_Node_5
+	eInnerState_Connecting1_Node_5 ---> eInnerState_Connecting1_Node_6
+	eInnerState_Connecting1 ---> eInnerState_Connecting2 : eInnerState_Connecting1->eInnerState_Connecting2
+	eInnerState_Connecting2_Node_1 ---> eInnerState_Connecting2_Node_2
+	eInnerState_Connecting2_Node_2 ---> eInnerState_Connecting2_Node_3
+	eInnerState_Connecting2_Node_3 ---> eInnerState_Connecting2_Node_5 : (SyncRM())
+	eInnerState_Connecting2 ---> eInnerState_DataExchange1 : eInnerState_Connecting2->eInnerState_DataExchange1
+	eInnerState_Connecting2_Node_3 ---> eInnerState_Connecting2_Node_7 : (NOT (SyncRM()))
+	eInnerState_Connecting2_Node_7 ---> eInnerState_Connecting2_Node_8 : (fbConnectTON.Q)
+	eInnerState_Connecting2_Node_8 ---> eInnerState_Connecting2_Node_9
+	eInnerState_Connecting2_Node_9 ---> eInnerState_Connecting2_ERROR : (fbConnectTON.Q)
+	eInnerState_DataExchange1_Node_1 ---> eInnerState_DataExchange1_Node_3 : (bEndCommunication)
+	eInnerState_DataExchange1_Node_3 ---> eInnerState_DataExchange1_Node_4
+	eInnerState_DataExchange1 ---> eInnerState_CloseConnection1 : eInnerState_DataExchange1->eInnerState_CloseConnection1
+	eInnerState_DataExchange1_Node_4 ---> eInnerState_DataExchange1_Node_7 : (NOT (Connected))
+	eInnerState_DataExchange1_Node_7 ---> eInnerState_DataExchange1_ERROR : (NOT (Connected))
+	eInnerState_DataExchange1_Node_1 ---> eInnerState_DataExchange1_Node_8 : (NOT (bEndCommunication))
+	eInnerState_DataExchange1_Node_8 ---> eInnerState_DataExchange1_Node_10 : (Connected)
+	eInnerState_DataExchange1_Node_10 ---> eInnerState_DataExchange1_Node_11
+	eInnerState_DataExchange1_Node_11 ---> eInnerState_DataExchange1_Node_12
+	eInnerState_DataExchange1_Node_12 ---> eInnerState_DataExchange1_Node_13
+	eInnerState_DataExchange1_Node_13 ---> eInnerState_DataExchange1_Node_14 : (bSendMotionCommands)
+	eInnerState_DataExchange1_Node_14 ---> eInnerState_DataExchange1_Node_15
+	eInnerState_DataExchange1_Node_15 ---> eInnerState_DataExchange1_Node_16
+	eInnerState_DataExchange1_Node_16 ---> eInnerState_DataExchange1_Node_9
+	eInnerState_DataExchange1_Node_13 ---> eInnerState_DataExchange1_Node_17 : (NOT (bSendMotionCommands))
+	eInnerState_DataExchange1_Node_17 ---> eInnerState_DataExchange1_Node_9
+	eInnerState_DataExchange1_Node_12 ---> eInnerState_DataExchange1_Node_18
+	eInnerState_DataExchange1_Node_18 ---> eInnerState_DataExchange1_Node_19
+	eInnerState_DataExchange1_Node_19 ---> eInnerState_DataExchange1_Node_20
+	eInnerState_DataExchange1 ---> eInnerState_DataExchange2 : eInnerState_DataExchange1->eInnerState_DataExchange2
+	eInnerState_DataExchange1_Node_22 ---> eInnerState_DataExchange1_Node_24 : (CycleIdDiscrepency())
+	eInnerState_DataExchange1_Node_24 ---> eInnerState_DataExchange1_Node_25
+	eInnerState_DataExchange1 ---> eInnerState_DataExchange2 : eInnerState_DataExchange1->eInnerState_DataExchange2
+	eInnerState_DataExchange2_Node_1 ---> eInnerState_DataExchange2_Node_2
+	eInnerState_DataExchange2_Node_2 ---> eInnerState_DataExchange2_Node_4 : (SyncRM())
+	eInnerState_DataExchange2 ---> eInnerState_DataExchange1 : eInnerState_DataExchange2->eInnerState_DataExchange1
+	eInnerState_DataExchange2_Node_2 ---> eInnerState_DataExchange2_Node_6 : (NOT (SyncRM()))
+	eInnerState_DataExchange2_Node_6 ---> eInnerState_DataExchange2_Node_7 : (fbDataExchaTON.Q)
+	eInnerState_DataExchange2_Node_7 ---> eInnerState_DataExchange2_Node_8
+	eInnerState_DataExchange2_Node_8 ---> eInnerState_DataExchange2_ERROR : (fbDataExchaTON.Q)
+	eInnerState_CloseConnection1_Node_1 ---> eInnerState_CloseConnection1_Node_3 : (Connected)
+	eInnerState_CloseConnection1_Node_3 ---> eInnerState_CloseConnection1_Node_2
+	eInnerState_CloseConnection1 ---> eInnerState_Idle : eInnerState_CloseConnection1->eInnerState_Idle
+eInnerState : 
+eInnerState : 
+
+
+}
+
+@enduml
