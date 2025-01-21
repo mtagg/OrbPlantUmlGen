@@ -69,15 +69,10 @@ def getElsifCondition(lines, lineIndex):
     print(f"ERROR: Found ELSIF without a THEN after {maxLinesToSearch} lines, returning empty string\n")
     return ""
 
-    
-def makeBranchStringConditional(srcState, destState, condition):
-  # print(f"\t{srcState} --> {destState} : {condition}\n")
-  return f"\t{srcState} ----> {destState} : {condition}\n"
-
-def makeBranchString(srcState, destState, condition = None, arrowType = "--->"):
+def makeBranchString(srcState, destState, condition = None, arrowType = "-->"):
     if condition == None:
         return f"\t{srcState} {arrowType} {destState}\n"  
     elif condition == 'START':
-        return f"\t{srcState} --> {destState}\n"
+        return f"\t{srcState} -r-> {destState}\n"
     else:
         return f"\t{srcState} {arrowType} {destState} : {condition}\n"

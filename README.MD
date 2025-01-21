@@ -1,7 +1,18 @@
 # README for ST2PlantUML_V2_Rx:
 
-## R0: First draft for new version with FB_StateMachine
-## DATE: FEBRUARY 5, 2024
+### Revision Notes:
+#### V3_R3:
+   1. Join blocks added to substates
+   2. Added general ":=" assignments as states
+   3. Removed 'START' from all starting transitions
+   4. Sub-state switching arrows all enter/exit from left
+#### V2_R4:
+   1. Color coded sub state switching 
+   2. Added new lines in various states/transitions to make diagrams less horizontal.
+   3. removed "eInnerState_" from substate titles.
+   4. Moved all inner substate transitions to be declared within the substate's curly brackets, and not appended to the end
+      1. All sub-state to sub-state transitions are still appended to the end of each .puml file
+
 
 ### How it works:
     1. First step is parsing the Tc.POU file:
@@ -24,7 +35,6 @@
 
 
 
-
 ### RULES/Limitations:
     1. Only **ONE** Case statement may be defined per FB (excluding the outter loop inherited from FB_StateMachine), this should be defined within InnerLoopSM() method
     2. Due to the more complicated call-chains that occur with the FB_StateMachine implementations, the UML diagram generator relys on the NAP_HD Software Standards being followed.
@@ -38,18 +48,12 @@
     8. any code line beginning with "IF" may cause issues if it isnt an IF statement. ie: naming a variable "IF_CONDITION" and then assigning it "IF_CONDITION := FALSE" may result in errors, but the UML output should still be okay.
 
 
-### Version Info:
-
-	V2_R0: 
-
-Rules Info:
-1. Multiline statements may exist only for "IF {Statement} THEN", or "ELSE {Statement} THEN" statements.
-2. 
 
 
-Bugs/ known issues:
-1. Nested Cases are not handled correctly, manual adjustments to some state UML code will be necessary (V0.6)
-2. Most logic outside of CASE [StateVariable] OF blocks is ignored, besides methods (V0.6)
-3. No default exit from each substate found in a CASE block will be stated. (V0.6)
-4. 
+### Bugs/ known issues:
+   1. Nested Cases are not handled correctly, manual adjustments to some state UML code will be necessary (V0.6)
+   2. Most logic outside of CASE [StateVariable] OF blocks is ignored, besides methods (V0.6)
+   3. No default exit from each substate found in a CASE block will be stated. (V0.6)
+   4. 
 	
+   

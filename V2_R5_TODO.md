@@ -16,15 +16,17 @@
 2. [x] Add pre-case parsing
 3. [x] Add post-case parsing
 4. [ ] add default ELSE for case statements
-5. [ ] Block uncaptured code as one block state of actions.
-6. [ ] Fix conditional statements that may have 'THIS^.' embedded
+5. [x] Add ':=' assignments to UML generator
+6. [x] Fix conditional statements that may have 'THIS^.' embedded
 7. [x] Add custom commented code inputs
 8. [x] Add Method() and FB() call parsing
 9. [x] bError Tracking/parsing
 10. [x] Track sequence number increments at the <convertSubStateToUML()> level, rather than at the Node object level.
+11. [ ] Update printUmlException() to return branch, umlstring, AND print UML error.
 
 
-# Later Features:
-* [ ] convertCaseToUML() should be able to recursivly generate for nested cases
-* [ ] Add enum/ integer state changing
-* [ ] Scale the parser to be able to handle multi-case POU files
+# Later Features/ Optimizations:
+1. [ ] convertCaseToUML() should be able to recursivly generate for nested cases
+2. [ ] Add enum/ integer state changing
+3. [ ] Scale the parser to be able to handle multi-case POU files
+4. [ ] Integrate old UML generator (pre FB_StateMachine) into new generator
